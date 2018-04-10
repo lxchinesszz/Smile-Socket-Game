@@ -1,5 +1,6 @@
 package smile.service.poker;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -358,5 +359,17 @@ public final class CardUtil {
             }
         }
         return true;
+    }
+
+
+    public static List<String> cardConvert(ArrayList<Card> poker){
+        if (poker==null){
+            return null;
+        }
+        List<String> pokers=new ArrayList<>(poker.size());
+        for (Card card:poker) {
+            pokers.add(String.valueOf(card.id));
+        }
+        return pokers;
     }
 }

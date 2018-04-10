@@ -22,4 +22,15 @@ public interface HomeManager {
      * @return
      */
     Long homeNumber();
+
+    /**
+     * 根据房间号,获取房间
+     * @param homeId
+     * @return
+     */
+    Home getHome(String homeId);
+
+    boolean updateHome(Home home);
+
+    Home clearHome(String homeId);
 }

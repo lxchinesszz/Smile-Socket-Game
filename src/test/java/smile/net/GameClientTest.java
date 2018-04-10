@@ -6,6 +6,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
+import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import junit.framework.TestCase;
@@ -36,28 +37,33 @@ public class GameClientTest extends TestCase {
         System.out.println("客户端成功启动...");
         b.group(group);
         b.channel(NioSocketChannel.class);
-       b.handler(new ChannelInitializer() {
-           @Override
-           protected void initChannel(Channel ch) throws Exception {
-               ChannelPipeline pipeline = ch.pipeline();
+        b.handler(new ChannelInitializer() {
+            @Override
+            protected void initChannel(Channel ch) throws Exception {
+                ChannelPipeline pipeline = ch.pipeline();
                 /*
                  * 这个地方的 必须和服务端对应上。否则无法正常解码和编码
                  *
                  * 解码和编码 我将会在下一张为大家详细的讲解。再次暂时不做详细的描述
                  *
                  * */
-//               pipeline.addLast("framer", new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
-               pipeline.addLast("decoder", new StringDecoder());
-               pipeline.addLast("encoder", new StringEncoder());
-               pipeline.addLast(new SocketClientHandler());
-           }
-       });
+//               pipeline.addLast("famer", new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
+                pipeline.addLast(new MessageToByteEncoderss());
+                pipeline.addLast(new SocketClientHandler());
+            }
+        });
         // 连接服务端
         ChannelFuture channelFuture = b.connect(host, port).sync();
-        if (channelFuture.isSuccess()){
-            channelFuture.channel().writeAndFlush("你好");
+        if (channelFuture.isSuccess()) {
+            String echo_req = "hi,!@#$@#@SA$$__DAS," +
+                    "!_#_$$__-1$\r\n$__&$-1hi,!@#$@#@SA$$__DAS,\" +\n" +
+                    "$__&$-1$$__";
+            byte[] bytes = echo_req.getBytes();
+            for (int i = 0; i <bytes.length ; i++) {
+                channelFuture.channel().writeAndFlush(echo_req);
+            }
         }
-        while (true){
+        while (true) {
 
         }
     }

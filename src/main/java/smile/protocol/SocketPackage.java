@@ -14,7 +14,7 @@ public class SocketPackage {
 
     private Datagram datagram;
 
-    public SocketPackage(GameProtocol protocol) {
+    public SocketPackage(Protocol protocol) {
         this(protocol, null);
     }
 
@@ -27,7 +27,7 @@ public class SocketPackage {
         return protocol;
     }
 
-    public void setProtocol(GameProtocol protocol) {
+    public void setProtocol(Protocol protocol) {
         this.protocol = protocol;
     }
 

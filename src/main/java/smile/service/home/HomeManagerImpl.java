@@ -70,4 +70,21 @@ public class HomeManagerImpl implements HomeManager {
     public Long homeNumber() {
         return Long.parseLong(Integer.toString(homeMap.size()));
     }
+
+
+    @Override
+    public Home getHome(String homeId) {
+        return homeMap.get(Integer.parseInt(homeId));
+    }
+
+    @Override
+    public boolean updateHome(Home home) {
+        Home update = this.homeMap.put(home.getHid(), home);
+        return update==null?false:true;
+    }
+
+    @Override
+    public Home clearHome(String homeId) {
+        return this.homeMap.remove(Integer.parseInt(homeId));
+    }
 }

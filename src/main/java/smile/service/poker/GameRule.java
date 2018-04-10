@@ -582,7 +582,7 @@ public final class GameRule {
 
             int size = myCards.size();
             // 顺子牌的个数在5到12之间
-            if (size < 5 || size > 12) {
+            if (size < 4 || size > 12) {
                 return false;
             }
 
@@ -675,7 +675,8 @@ public final class GameRule {
         }
 
         int size = myCards.size();
-        if (size < 6 || size % 2 != 0) {
+//        if (size < 6 || size % 2 != 0)
+        if (size < 4 || size % 2 != 0) {
             flag = false;
         } else {
             // 对牌进行排序
@@ -842,6 +843,18 @@ public final class GameRule {
 
     public static void print(Card card) {
         System.out.println(card);
+    }
+
+
+    public static void main(String[] args) {
+        List list=new ArrayList();
+        list.add(new Card(5));
+        list.add(new Card(5));
+        list.add(new Card(6));
+        list.add(new Card(6));
+        list.add(new Card(7));
+        list.add(new Card(7));
+        System.out.println(isLianDui(list));
     }
 }
 

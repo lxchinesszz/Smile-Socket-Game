@@ -19,6 +19,18 @@ public  class Protocol {
      */
     private byte sub;
 
+    public Protocol(byte main, byte sub) {
+        this.main = main;
+        this.sub = sub;
+    }
+
+    public Protocol(int main, int sub) {
+       this((byte)main,(byte)sub);
+    }
+
+    public Protocol() {
+    }
+
     public int getMain() {
         return main;
     }

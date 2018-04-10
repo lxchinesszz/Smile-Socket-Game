@@ -38,9 +38,5 @@ public class ListTools {
         return list;
     }
 
-    public static void main(String[] args) {
-        Number[]b=new Number[]{10000,-2,3,4};
-        toList(b).stream().forEach(x-> System.out.println(x
-        ));
-    }
+
 }

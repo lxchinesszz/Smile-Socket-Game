@@ -1,6 +1,8 @@
 package smile.protocol;
 
+import smile.database.dto.*;
 import smile.protocol.impl.HeartbeatDatagram;
+import smile.protocol.impl.ServiceTokenDatagram;
 import smile.protocol.impl.UserDatagram;
 
 /**
@@ -20,16 +22,35 @@ public class GameProtocolStrategy implements ProtocolStrategy {
          * 副号
          */
         int sub = protocol.getSub();
-        if (main>2||main<0){
-            throw new RuntimeException("客户端请求协议有误,主协议号:[ "+main+" ],副号:[ "+sub+" ]");
+        if (main > 2 || main < 0) {
+            throw new RuntimeException("客户端请求协议有误,主协议号:[ " + main + " ],副号:[ " + sub + " ]");
         }
-        if (main==0&&sub==0){
+        if (main == 0 && sub == 0) {
             //心跳包
             return new HeartbeatDatagram();
         }
-        if (sub==1){
+        if (sub == 1) {
             return new UserDatagram();
+        } else if (sub == 3) {
+            return new CreateRoomC2S_DTO();
+        } else if (sub == 4) {
+            return new JoinRoomC2S_DTO();
+        } else if (sub == 5) {
+            return new LeaveRoomC2S_DTO();
+        }else if (sub==10){
+            return new PlayerReadyC2S_DTO();
+        }else if (sub==100){
+            return new ServiceTokenDatagram();
+        }else if (sub==12){
+            return new OperatorC2S_DTO();
+        }else if(sub==14){
+            return new CheckPokerC2S_DTO();
+        }else if(sub==16){
+            return new RemoveRoomC2S_DTO();
+        }else if(sub==17){
+            return new ChatC2S_DTO();
         }
+
         return new UserDatagram();
     }
 }

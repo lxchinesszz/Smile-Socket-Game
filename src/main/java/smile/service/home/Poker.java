@@ -26,4 +26,10 @@ public interface Poker {
      * @param players
      */
      void deal(List<Player> players);
+
+    /**
+     * 获取地主牌
+     * @return
+     */
+     ArrayList<Card> getMainPoker();
 }
