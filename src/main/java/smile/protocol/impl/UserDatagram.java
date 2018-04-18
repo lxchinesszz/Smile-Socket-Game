@@ -44,4 +44,21 @@ public class UserDatagram implements Datagram {
     private String ip;
 
     private String cardNum;
+    /**
+     * 是否是供应商
+     */
+    private String isAdmin;
+    /**
+     * 房间号
+     */
+    private String hid;
+    /**
+     * 剩余牌局书
+     */
+    private String shengyuRoomNum;
+
+    /**
+     * 是否断线重连
+     */
+    private String isBreakConnect;
 }

@@ -20,6 +20,7 @@ public class SocketClientHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext arg0, Throwable arg1) throws Exception {
         // TODO Auto-generated method stub
+//        SimpleChannelInboundHandler
     }
 
     @Override

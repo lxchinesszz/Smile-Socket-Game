@@ -15,6 +15,13 @@ public interface HomeManager {
      */
     Home createHome(HomeInfo homeType);
 
+    /**
+     * 创建一个房间
+     *
+     * @return
+     */
+    Home createHome(String hid,HomeInfo homeType);
+
 
     /**
      * 返回房间数量

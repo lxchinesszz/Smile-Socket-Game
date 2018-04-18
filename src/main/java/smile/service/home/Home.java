@@ -31,7 +31,7 @@ public class Home {
     /**
      * 房间号: 6位
      */
-    private int hid;
+    private String hid;
     /**
      * 房间名
      */
@@ -50,7 +50,7 @@ public class Home {
      */
     private volatile int readyNum;
 
-    private volatile int currentChairId;
+    private volatile int currentChairId=-1;
 
     private volatile int landLordChairId=-1;
 
@@ -61,6 +61,44 @@ public class Home {
     private int multiple = 1;
 
     private String FirstJiaoDizhuCharid;
+
+    private long startTime;
+    private long endTime;
+
+    private List<Card> currentCards;
+
+    private Player currentOutCardsPlayer;
+
+    private boolean isMaxCardOut = false;
+    //是否下一个出牌
+    private boolean isNextOutCard = false;
+
+
+
+
+    public int getCurrentChairId() {
+        return currentChairId;
+    }
+
+    public void setCurrentChairId(int currentChairId) {
+        this.currentChairId = currentChairId;
+    }
+
+    public long getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(long startTime) {
+        this.startTime = startTime;
+    }
+
+    public long getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(long endTime) {
+        this.endTime = endTime;
+    }
 
     public void setReadyNum(int readyNum) {
         this.readyNum = readyNum;
@@ -133,13 +171,7 @@ public class Home {
         return multiple;
     }
 
-    private List<Card> currentCards;
 
-    private Player currentOutCardsPlayer;
-
-    private boolean isMaxCardOut = false;
-    //是否下一个出牌
-    private boolean isNextOutCard = false;
 
 
     public void setNextOutCard(boolean nextOutCard) {
@@ -210,6 +242,10 @@ public class Home {
         return this.currentChairId;
     }
 
+    public int getPreOperaCharId(int currentChairId){
+       return currentChairId>0?currentChairId-1:3;
+    }
+
     public int getLandLordChairId() {
         return landLordChairId;
     }
@@ -274,12 +310,12 @@ public class Home {
     }
 
     public Home(int hid) {
-        this.hid = hid;
+        this.hid = String.valueOf(hid);
     }
 
     public Home(HomeInfo homeInfo, int hid) {
         this.homeInfo = homeInfo;
-        this.hid = hid;
+        this.hid = String.valueOf(hid);
         //设置最大人数
         players = new ArrayList(homeInfo.getPersonNum());
         players.add(homeInfo.getHomeOwner());
@@ -295,12 +331,12 @@ public class Home {
         });
     }
 
-    public int getHid() {
+    public String getHid() {
         return hid;
     }
 
     public void setHid(int hid) {
-        this.hid = hid;
+        this.hid = String.valueOf(hid);
     }
 
     public String getHomeName() {
@@ -386,7 +422,8 @@ public class Home {
         System.err.println("当前地主: " + getPlayerByChairId(landLordChairId));
         System.err.println("当前牌面底牌: " + poker.getMainPoker());
         System.err.println("当前操作次数: " + this.operaCount);
-        System.err.println("当前强地主次数: " + this.qiangDiZhuCount);
+        System.err.println("当前抢地主次数: " + this.qiangDiZhuCount);
+        System.err.println("当前操作的玩家:"+this.getCurrentChairId());
         List<Player> players = getPlayers();
         for (int i = 0, lenth = players.size(); i < lenth; i++) {
             Player player = players.get(i);

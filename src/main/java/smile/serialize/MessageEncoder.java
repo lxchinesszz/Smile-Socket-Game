@@ -1,6 +1,7 @@
 package smile.serialize;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
@@ -39,7 +40,7 @@ public class MessageEncoder extends MessageToByteEncoder<SocketPackage> {
 
         } else {
             System.out.println(">->->->>->->->>->->->>-" + DateFormatTools.getDateFormat("HH:mm:ss") + ">->->>->->->>->->->>->->->>->->->");
-            System.out.printf("出口序列化: %s,长度:%d", socketPackage.toString(), length);
+            System.out.printf("出口序列化: %s,长度:%d", socketPackage.toString(), length+4);
             System.out.println();
             System.out.println(">->->->>->->->>->->->>-" + DateFormatTools.getDateFormat("HH:mm:ss") + ">->->>->->->>->->->>->->->>->->->");
             //将长度放在前面

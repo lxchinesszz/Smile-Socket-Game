@@ -46,4 +46,6 @@ public class UserEntity{
     private String ip;
 
     private String cardNum;
+
+    private long timestamp;
 }

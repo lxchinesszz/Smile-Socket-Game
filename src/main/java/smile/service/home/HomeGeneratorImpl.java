@@ -8,6 +8,10 @@ public class HomeGeneratorImpl implements HomeGenerator {
         return new Home(homeType,homeKey());
     }
 
+    @Override
+    public Home createHome(String uid,HomeInfo homeType) {
+        return new Home(homeType,Integer.parseInt(uid));
+    }
 
     @Override
     public Integer homeKey() {

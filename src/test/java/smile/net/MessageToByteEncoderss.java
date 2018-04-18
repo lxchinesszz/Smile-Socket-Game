@@ -2,6 +2,7 @@ package smile.net;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.FixedLengthFrameDecoder;
 import io.netty.handler.codec.MessageToByteEncoder;
 
 /**

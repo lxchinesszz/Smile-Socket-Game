@@ -32,7 +32,7 @@ public class GameHandlerTest extends TestCase {
         HomeInfo homeInfo = new HomeInfo(p1, 3, poker,"1","1","1","1","1","1");
         Home home = homeManager.createHome(homeInfo);
         //返回六位房间号
-        int hid = home.getHid();
+        String hid = home.getHid();
         System.out.println("房间号:" + hid);
         home.addPlayers(p2);
         home.addPlayers(p3);

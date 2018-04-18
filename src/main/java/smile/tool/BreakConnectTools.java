@@ -11,11 +11,11 @@ import java.util.Map;
 public class BreakConnectTools {
     private static final Map<String,String> breakUidAndHidAsMap=new HashMap<>();
 
-    public static void addUidAndHid(String uid,String hid){
-        breakUidAndHidAsMap.put(uid,hid);
+    public static void addUidAndHid(String userToken,String hid){
+        breakUidAndHidAsMap.put(userToken,hid);
     }
 
-    public static String getHidByUid(String uid){
-        return breakUidAndHidAsMap.getOrDefault(uid,"");
+    public static String getHidByUid(String userToken){
+        return breakUidAndHidAsMap.getOrDefault(userToken,"");
     }
 }

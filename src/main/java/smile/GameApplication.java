@@ -1,16 +1,20 @@
 package smile;
 
+import org.bson.Document;
 import org.smileframework.ioc.bean.annotation.SmileBootApplication;
 import org.smileframework.ioc.bean.context.*;
 import org.smileframework.ioc.util.SmileContextTools;
-import smile.database.domain.UserEntity;
+import smile.database.domain.NotifiyEntity;
+import smile.database.dto.NotifiyS2C_DTO;
 import smile.database.mongo.MongoDao;
-import smile.global.annotation.ActionMapping;
 import smile.net.GameServer;
-import smile.service.handler.Action;
+import smile.protocol.Protocol;
+import smile.protocol.SocketPackage;
+import smile.service.handler.BreakActionHandler;
+import smile.tool.ActionTools;
 import smile.tool.IOC;
 
-import java.util.Map;
+import java.util.*;
 
 /**
  * @Package: smile
@@ -24,12 +28,10 @@ public class GameApplication {
 
     public static void main(String[] args) throws Exception {
         ConfigurableApplicationContext configurableApplicationContext = SmileApplication.run(GameApplication.class, args);
-
-
-
-
         IOC.setConfigurableApplicationContext(configurableApplicationContext);
         GameServer.start(10101);
+        ActionTools.action();
+        BreakActionHandler bean = configurableApplicationContext.getBean(BreakActionHandler.class);
 //        MongoDao mongoDao = configurableApplicationContext.getBean(MongoDao.class);
 //        List<UserEntity> all = mongoDao.findAll(UserEntity.class);
 //        for (UserEntity userEntity:all){
@@ -42,7 +44,14 @@ public class GameApplication {
 //        UserEntity byUid = mongoDao.findByUid("125997", UserEntity.class);
 //        System.out.println(byUid);
         ConfigApplicationContext currentApplication = (ConfigApplicationContext) SmileContextTools.getCurrentApplication();
-
-        Map<String, BeanDefinition> beanByAnnotation = configurableApplicationContext.getBeanByAnnotation(ActionMapping.class);
+        MongoDao mongoDao = currentApplication.getBean(MongoDao.class);
+        Document query2 = new Document("endTime", new Document("$gt", System.currentTimeMillis()));
+        List<NotifiyEntity> all = mongoDao.findAll(query2.toJson(),NotifiyEntity.class);
+        SocketPackage socketPackage = new SocketPackage(new Protocol(2, 21));
+        if (all!=null&all.size()>0){
+            socketPackage.setDatagram(new NotifiyS2C_DTO("0",all));
+        }else {
+            socketPackage.setDatagram(new NotifiyS2C_DTO("-1",all));
+        }
     }
 }

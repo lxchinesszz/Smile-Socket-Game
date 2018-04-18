@@ -6,7 +6,7 @@ package smile.protocol;
  * @author: liuxin
  * @date: 2018/3/16 下午6:10
  */
-public  class Protocol {
+public class Protocol {
     /**
      * 主要: 区分发送方
      * 1 为客户端请求

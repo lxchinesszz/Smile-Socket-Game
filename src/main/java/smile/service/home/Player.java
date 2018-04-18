@@ -43,7 +43,10 @@ public class Player {
      * 出牌 = 9,
      */
     private int operatorStatus;
-
+    /**
+     * 玩家将要操作的状态
+     */
+    private int willOperatorStatus=-1;
 
     /**
      * 玩家状态
@@ -51,14 +54,28 @@ public class Player {
      */
     private String status;
 
+    private String currentGrade;
 
     /**
      * 是否叫地主
      */
-    private boolean jiaodizhu=false;
+    private boolean jiaodizhu = false;
 
     public boolean isJiaodizhu() {
         return jiaodizhu;
+    }
+
+    /**
+     * 玩家当局总分数
+     */
+    private int grade;
+
+    public int addGrade(int currentGrade){
+        return grade+currentGrade;
+    }
+
+    public int subGrade(int currentGrade){
+        return grade-currentGrade;
     }
 
     public void setJiaodizhu(boolean jiaodizhu) {
@@ -100,6 +117,19 @@ public class Player {
         Collections.sort(poker);
         return poker;
     }
+
+    public void setCurrentGrage(String grade) {
+        this.currentGrade = grade;
+    }
+
+    public void setCurrentGrage(int grade) {
+        this.currentGrade = String.valueOf(grade);
+    }
+
+    public String getCurrentGrage() {
+        return this.currentGrade;
+    }
+
 
     public void removePoker(List<Card> cards) {
         for (Card card0 : cards) {
@@ -169,7 +199,16 @@ public class Player {
                 ", channel=" + channel +
                 ", chairId='" + chairId + '\'' +
                 ", operatorStatus=" + operatorStatus +
+                ", willOperatorStatus=" + willOperatorStatus +
                 ", status='" + status + '\'' +
+                ", currentGrade='" + currentGrade + '\'' +
+                ", jiaodizhu=" + jiaodizhu +
                 '}';
+    }
+
+
+
+    public void addMainPoker(List<Card> mainCard){
+        poker.addAll(mainCard);
     }
 }

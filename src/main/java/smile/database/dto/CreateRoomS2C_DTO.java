@@ -22,4 +22,17 @@ public class CreateRoomS2C_DTO implements Datagram {
     private String method;//玩发
     private String currentRoomNum;//剩余局数
     private String multiple; //最大倍数
+    public CreateRoomS2C_DTO(){}
+
+    public CreateRoomS2C_DTO(String hid, String ownerId, String roomNum, String blind, String sharedIP, String AA, String method, String currentRoomNum, String multiple) {
+        this.hid = hid;
+        this.ownerId = ownerId;
+        this.roomNum = roomNum;
+        this.blind = blind;
+        this.sharedIP = sharedIP;
+        this.AA = AA;
+        this.method = method;
+        this.currentRoomNum = currentRoomNum;
+        this.multiple = multiple;
+    }
 }

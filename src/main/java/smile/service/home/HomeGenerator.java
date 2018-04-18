@@ -27,5 +27,7 @@ public interface HomeGenerator {
      */
     Home createHome(HomeInfo homeInfo);
 
+    Home createHome(String hid,HomeInfo homeInfo);
+
 
 }

@@ -1,13 +1,11 @@
 package smile.protocol;
 
 import org.smileframework.ioc.bean.annotation.SmileComponent;
+import org.smileframework.ioc.bean.context.BeanDefinition;
 import org.smileframework.ioc.util.SmileContextTools;
-import smile.service.handler.Action;
+import smile.global.annotation.Action;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.util.Map;
 
 /**
  * @Package: smile.protocol
@@ -19,10 +17,12 @@ import java.lang.annotation.Target;
 public class ActionManager {
 
     public void action(SocketPackage socketPackage){
+        //拿到副协议号
         int sub = socketPackage.getProtocol().getSub();
+        //TODO 通过协议号找到处理类
+
 
         //TODO 拿到所有绑定的动作,进行处理
-
-        SmileContextTools.getCurrentApplication().getBean(Action.class);
+        Map<String, BeanDefinition> beanByAnnotation = SmileContextTools.getCurrentApplication().getBeanByAnnotation(Action.class);
     }
 }

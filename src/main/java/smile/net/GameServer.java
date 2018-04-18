@@ -1,23 +1,15 @@
 package smile.net;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.DelimiterBasedFrameDecoder;
-import io.netty.handler.codec.Delimiters;
-import io.netty.handler.codec.FixedLengthFrameDecoder;
-import io.netty.handler.codec.LineBasedFrameDecoder;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import org.smileframework.tool.threadpool.SmileThreadFactory;
-import smile.protocol.GameChannelHandler;
+import smile.protocol.GameChannelDispatchHandler;
 import smile.protocol.GameProtocolStrategy;
-import smile.serialize.MessageDecoder;
 import smile.serialize.MessageEncoder;
 import smile.serialize.MessagesDecoder;
 
@@ -60,12 +52,9 @@ public class GameServer {
             @Override
             protected void initChannel(SocketChannel channel) throws Exception {
                 ChannelPipeline pipeline = channel.pipeline();
-//                pipeline.addLast(new DelimiterBasedFrameDecoder(1024, Unpooled.copiedBuffer("$$__".getBytes())));
-//                pipeline.addLast(new FixedLengthFrameDecoder(23));
-//                pipeline.addLast(new StringDecoder());
                 pipeline.addLast("decode", new MessagesDecoder(new GameProtocolStrategy()));
                 pipeline.addLast("encode", new MessageEncoder());
-                pipeline.addLast("handler", new GameChannelHandler());
+                pipeline.addLast("handler", new GameChannelDispatchHandler());
             }
         });
         try {

@@ -14,7 +14,7 @@ public class HomeManagerImpl implements HomeManager {
     /**
      * 房间信息
      */
-    Map<Integer, Home> homeMap=new ConcurrentHashMap();
+    Map<String, Home> homeMap=new ConcurrentHashMap();
     /**
      * 房间生成器,可以生成多人
      */
@@ -52,6 +52,19 @@ public class HomeManagerImpl implements HomeManager {
         return home;
     }
 
+    @Override
+    public Home createHome(String hid, HomeInfo homeType) {
+        Home home = null;
+        do {
+            home = homeGenerator.createHome(hid,homeType);
+        } while (checkUniqueHome(home));
+        /**
+         * 常见成功即添加到管理页面
+         */
+        addHome(home);
+        return home;
+    }
+
     /**
      * 创建一个房间
      *
@@ -74,7 +87,7 @@ public class HomeManagerImpl implements HomeManager {
 
     @Override
     public Home getHome(String homeId) {
-        return homeMap.get(Integer.parseInt(homeId));
+        return homeMap.get(homeId);
     }
 
     @Override
@@ -85,6 +98,6 @@ public class HomeManagerImpl implements HomeManager {
 
     @Override
     public Home clearHome(String homeId) {
-        return this.homeMap.remove(Integer.parseInt(homeId));
+        return this.homeMap.remove(homeId);
     }
 }

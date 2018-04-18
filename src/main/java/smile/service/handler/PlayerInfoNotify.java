@@ -3,9 +3,13 @@ package smile.service.handler;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import io.netty.channel.Channel;
+import org.bson.Document;
 import org.smileframework.ioc.bean.annotation.InsertBean;
 import org.smileframework.ioc.bean.annotation.SmileComponent;
+import smile.database.domain.NotifiyEntity;
 import smile.database.domain.UserEntity;
+import smile.database.dto.CardNotifyS2C_DTO;
+import smile.database.dto.NotifiyS2C_DTO;
 import smile.database.dto.OperatorS2C_DTO;
 import smile.database.dto.PlayerInfoS2C_DTO;
 import smile.database.mongo.MongoDao;
@@ -13,8 +17,10 @@ import smile.protocol.Protocol;
 import smile.protocol.SocketPackage;
 import smile.service.home.Home;
 import smile.service.home.Player;
+import smile.tool.DateTools;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Predicate;
@@ -30,6 +36,20 @@ public class PlayerInfoNotify {
 
     @InsertBean
     MongoDao mongoDao;
+
+
+    public SocketPackage gameNotify(Channel channel){
+        Document query2 = new Document("endTime", new Document("$gt", System.currentTimeMillis()));
+        List<NotifiyEntity> all = mongoDao.findAll(query2.toJson(),NotifiyEntity.class);
+        SocketPackage socketPackage = new SocketPackage(new Protocol(2, 21));
+        if (all!=null&all.size()>0){
+            socketPackage.setDatagram(new NotifiyS2C_DTO("0",all));
+        }else {
+            socketPackage.setDatagram(new NotifiyS2C_DTO("-1",all));
+        }
+        channel.writeAndFlush(socketPackage);
+        return socketPackage;
+    }
 
     /**
      * @param home     房间
@@ -68,7 +88,48 @@ public class PlayerInfoNotify {
 
     }
 
+    /**
+     * 房卡推送
+     * @param
+     */
+    public void notifyCardNum(List<Player> players){
+        SocketPackage socketPackage=new SocketPackage(new Protocol(2,19));
+        for (Player player:players){
+            Channel channel = player.getChannel();
+            if (channel!=null){
+                String uid = player.getUid();
+                UserEntity byUid = mongoDao.findByUid(uid, UserEntity.class);
+                socketPackage.setDatagram(new CardNotifyS2C_DTO(uid,byUid.getCardNum()));
+                channel.writeAndFlush(socketPackage);
+            }
+        }
+    }
 
+
+    /**
+     * 房卡推送
+     * @param home
+     */
+    public void notifyCardNum(Home home){
+        List<Player> players = home.getPlayers();
+        SocketPackage socketPackage=new SocketPackage(new Protocol(2,19));
+        for (Player player:players){
+            Channel channel = player.getChannel();
+            if (channel!=null){
+                String uid = player.getUid();
+                UserEntity byUid = mongoDao.findByUid(uid, UserEntity.class);
+                socketPackage.setDatagram(new CardNotifyS2C_DTO(uid,byUid.getCardNum()));
+                channel.writeAndFlush(socketPackage);
+            }
+        }
+    }
+
+    /**
+     * 信息推送，排除指定uid
+     * @param home
+     * @param socketPackage
+     * @param uid
+     */
     public void operatorByUid(Home home, SocketPackage socketPackage,String uid) {
         List<Player> players = home.getPlayers();
         Iterator<Player> iterator = players.stream().filter(new Predicate<Player>() {
