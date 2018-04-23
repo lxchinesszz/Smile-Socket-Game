@@ -5,6 +5,7 @@ import io.netty.channel.Channel;
 import org.smileframework.ioc.bean.annotation.InsertBean;
 import org.smileframework.ioc.bean.annotation.SmileComponent;
 import org.smileframework.tool.json.JsonUtils;
+import smile.config.ErrorEnum;
 import smile.database.domain.PokerRecordEntity;
 import smile.database.dto.UserC2S_DTO;
 import smile.database.mongo.MongoDao;
@@ -37,14 +38,14 @@ public class RememberPokerActionHandler extends AbstractActionHandler{
      * @param channel
      * @return
      */
-    @SubOperation(sub = 23)
+    @SubOperation(sub = 23,model = UserC2S_DTO.class)
     SocketPackage buyJipaiqi(SocketPackage socketPackage, Channel channel) {
         UserC2S_DTO datagram = (UserC2S_DTO) socketPackage.getDatagram();
         String uid = datagram.getUid();
         UserDatagram byUid = mongoDao.findByUid(uid, UserDatagram.class);
         String cardNum = byUid.getCardNum();
         if (Integer.parseInt(cardNum) < 4) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "房卡数量不足,请先充值!");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.CARD_BUGOU);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));
@@ -58,7 +59,7 @@ public class RememberPokerActionHandler extends AbstractActionHandler{
         boolean update1 = mongoDao.update(userQuery, update, UserDatagram.class);
         if (update1) {
             mongoDao.insert(new PokerRecordEntity(uid, DateTools.getDayEndTime().getTime()));
-            ResultDatagram resultDatagram = new ResultDatagram("购买成功");
+            ResultDatagram resultDatagram = new ResultDatagram();
             socketPackage.setDatagram(resultDatagram);
             channel.writeAndFlush(socketPackage);
         }
@@ -71,7 +72,7 @@ public class RememberPokerActionHandler extends AbstractActionHandler{
      * @param channel
      * @return
      */
-    @SubOperation(sub = 24)
+    @SubOperation(sub = 24,model = UserC2S_DTO.class)
     public SocketPackage checkJipaiqi(SocketPackage socketPackage, Channel channel) {
         UserC2S_DTO datagram = (UserC2S_DTO) socketPackage.getDatagram();
         String uid = datagram.getUid();
@@ -79,17 +80,17 @@ public class RememberPokerActionHandler extends AbstractActionHandler{
         PokerRecordEntity one = mongoDao.findOne(query, PokerRecordEntity.class);
         //判断是否过期当前时间>记牌器结束时间就移除
         if (one == null) {
-            ResultDatagram err = new ResultDatagram(-1, "记牌器已过期,或不存在");
+            ResultDatagram err = new ResultDatagram(ErrorEnum.JIPAIQI_FAIL);
             socketPackage.setDatagram(err);
             channel.writeAndFlush(socketPackage);
             return socketPackage;
         }
         if (one.getEndTime() < System.currentTimeMillis()) {
             mongoDao.del(query, mongoDao.getDocumetName(one.getClass()));
-            ResultDatagram err = new ResultDatagram(-1, "记牌器已过期,或不存在");
+            ResultDatagram err = new ResultDatagram(ErrorEnum.JIPAIQI_FAIL);
             socketPackage.setDatagram(err);
         } else {
-            ResultDatagram resultDatagram = new ResultDatagram("可以使用");
+            ResultDatagram resultDatagram = new ResultDatagram();
             socketPackage.setDatagram(resultDatagram);
         }
         channel.writeAndFlush(socketPackage);

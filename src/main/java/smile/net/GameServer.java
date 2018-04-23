@@ -10,13 +10,14 @@ import io.netty.handler.logging.LoggingHandler;
 import org.smileframework.tool.threadpool.SmileThreadFactory;
 import smile.protocol.GameChannelDispatchHandler;
 import smile.protocol.GameProtocolStrategy;
+import smile.protocol.GameV2ProtocolStrategy;
 import smile.serialize.MessageEncoder;
 import smile.serialize.MessagesDecoder;
 
 public class GameServer {
 
     public static void start(int port) throws Exception {
-
+        GameV2ProtocolStrategy v2ProtocolStrategy=new GameV2ProtocolStrategy();
         ServerBootstrap serverBootstrap = new ServerBootstrap();
         // 通过nio方式来接收连接和处理连接
         EventLoopGroup group = new NioEventLoopGroup(0, new SmileThreadFactory("game-group"));
@@ -52,7 +53,8 @@ public class GameServer {
             @Override
             protected void initChannel(SocketChannel channel) throws Exception {
                 ChannelPipeline pipeline = channel.pipeline();
-                pipeline.addLast("decode", new MessagesDecoder(new GameProtocolStrategy()));
+//                new GameProtocolStrategy())
+                pipeline.addLast("decode", new MessagesDecoder(v2ProtocolStrategy));
                 pipeline.addLast("encode", new MessageEncoder());
                 pipeline.addLast("handler", new GameChannelDispatchHandler());
             }

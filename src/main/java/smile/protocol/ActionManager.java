@@ -20,8 +20,6 @@ public class ActionManager {
         //拿到副协议号
         int sub = socketPackage.getProtocol().getSub();
         //TODO 通过协议号找到处理类
-
-
         //TODO 拿到所有绑定的动作,进行处理
         Map<String, BeanDefinition> beanByAnnotation = SmileContextTools.getCurrentApplication().getBeanByAnnotation(Action.class);
     }

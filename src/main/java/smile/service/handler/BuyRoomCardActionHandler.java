@@ -5,6 +5,7 @@ import io.netty.channel.Channel;
 import org.smileframework.ioc.bean.annotation.InsertBean;
 import org.smileframework.ioc.bean.annotation.SmileComponent;
 import org.smileframework.tool.json.JsonUtils;
+import smile.config.ErrorEnum;
 import smile.database.domain.UserEntity;
 import smile.database.dto.ActiveC2S_DTO;
 import smile.database.dto.ActiveS2C_DTO;
@@ -44,7 +45,7 @@ public class BuyRoomCardActionHandler extends AbstractActionHandler{
      * @param channel
      * @return
      */
-    @SubOperation(sub = 22)
+    @SubOperation(sub = 22,model = ChongZhiC2S_DTO.class)
     public SocketPackage chongzhi(SocketPackage socketPackage, Channel channel) {
         ChongZhiC2S_DTO datagram = (ChongZhiC2S_DTO) socketPackage.getDatagram();
         String uid = datagram.getUid();
@@ -53,7 +54,7 @@ public class BuyRoomCardActionHandler extends AbstractActionHandler{
         //1. 查询是否是供应商
         UserDatagram admin = mongoDao.findByUid(uid, UserDatagram.class);
         if (!"1".equalsIgnoreCase(admin.getIsAdmin())) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前用户非供应商");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.NO_GONGYINGSHANG);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));
@@ -63,7 +64,7 @@ public class BuyRoomCardActionHandler extends AbstractActionHandler{
         //2.
         String beforeCard = admin.getCardNum();
         if (Integer.parseInt(beforeCard) < Integer.parseInt(cardNum)) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "房卡数量不足,不能充值(房卡数:" + admin.getCardNum() + ")");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.CARD_BUZU);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));
@@ -76,7 +77,7 @@ public class BuyRoomCardActionHandler extends AbstractActionHandler{
         admingUpdate.put("cardNum", afterAdmingCard);
         boolean admingUpdateFlag = mongoDao.update(admingQuery, admingUpdate, UserEntity.class);
         if (!admingUpdateFlag) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "房卡扣除失败,请稍后再试");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.KOU_FAIL);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));
@@ -103,7 +104,7 @@ public class BuyRoomCardActionHandler extends AbstractActionHandler{
      * @param channel
      * @return
      */
-    @SubOperation(sub=18)
+    @SubOperation(sub=18,model = ActiveC2S_DTO.class)
     public SocketPackage active(SocketPackage socketPackage, Channel channel) {
         ActiveC2S_DTO datagram = (ActiveC2S_DTO) socketPackage.getDatagram();
         String active = datagram.getActive();
@@ -111,7 +112,7 @@ public class BuyRoomCardActionHandler extends AbstractActionHandler{
         boolean result = false;
         UserEntity userEntity = mongoDao.findByUid(uid, UserEntity.class);
         if (userEntity == null) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前uid不存在");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.UNFOUND_UID);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));

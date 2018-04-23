@@ -83,11 +83,14 @@ public class ActionTools {
             if (subOperation == null) continue;
             AnnotationMap<String, Object> subOperaInfo = AnnotationTools.getAnnotationAttributeAsMap(subOperation);
             Object sub = subOperaInfo.get("sub");
+            Class model = (Class)subOperaInfo.get("model");
             byte[] subs = (byte[]) sub;
             for (byte s : subs) {
                 String subString = String.valueOf(s);
-                actionCache.put(subString, new ActionModel(beanDefinition, method));
-                logger.info("子协议号: " + subString + ",绑定类: " + ClassTools.getQualifiedName(beanDefinition.getClazz())+",绑定方法: "+method.getName());
+                actionCache.put(subString, new ActionModel(beanDefinition, method,model));
+                logger.info("子协议号: " + subString + ",绑定类: " +
+                        ClassTools.getQualifiedName(beanDefinition.getClazz())
+                        +",绑定方法: "+method.getName()+",序列化类: "+ClassTools.getShortName(model));
             }
         }
     }
@@ -95,10 +98,17 @@ public class ActionTools {
     public static class ActionModel {
         BeanDefinition beanDefinition;
         Method method;
+        Class serialiModel;
 
         public ActionModel(BeanDefinition beanDefinition, Method method) {
             this.beanDefinition = beanDefinition;
             this.method = method;
+        }
+
+        public ActionModel(BeanDefinition beanDefinition, Method method,Class model) {
+            this.beanDefinition = beanDefinition;
+            this.method = method;
+            this.serialiModel=model;
         }
 
         public BeanDefinition getBeanDefinition() {
@@ -115,6 +125,14 @@ public class ActionTools {
 
         public void setMethod(Method method) {
             this.method = method;
+        }
+
+        public Class getSerialiModel() {
+            return serialiModel;
+        }
+
+        public void setSerialiModel(Class serialiModel) {
+            this.serialiModel = serialiModel;
         }
 
         @Override

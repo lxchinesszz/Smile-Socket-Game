@@ -29,7 +29,7 @@ public class MessageNotityActionHandler extends AbstractActionHandler{
      * @param channel
      * @return
      */
-    @SubOperation(sub = 17)
+    @SubOperation(sub = 17,model = ChatC2S_DTO.class)
     public SocketPackage charTM(SocketPackage socketPackage, Channel channel) {
         ChatC2S_DTO datagram = (ChatC2S_DTO) socketPackage.getDatagram();
         String hid = datagram.getHid();

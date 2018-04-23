@@ -4,6 +4,7 @@ import io.netty.channel.*;
 import io.netty.util.ReferenceCountUtil;
 import smile.config.Constants;
 import smile.tool.*;
+
 import java.net.InetSocketAddress;
 import java.util.*;
 
@@ -30,7 +31,12 @@ public class GameChannelDispatchHandler extends ChannelInboundHandlerAdapter {
         SocketPackage socketPackage = (SocketPackage) msg;
         int sub = socketPackage.getProtocol().getSub();
         Channel channel = ctx.channel();
-        ActionTools.opera((byte) sub, socketPackage, channel);
+        channel.eventLoop().execute(new Runnable() {
+            @Override
+            public void run() {
+                ActionTools.opera((byte) sub, socketPackage, channel);
+            }
+        });
         ReferenceCountUtil.release(msg);
     }
 

@@ -3,6 +3,7 @@ package smile.service.handler;
 import io.netty.channel.Channel;
 import org.smileframework.ioc.bean.annotation.InsertBean;
 import org.smileframework.ioc.bean.annotation.SmileComponent;
+import smile.config.ErrorEnum;
 import smile.database.domain.UserEntity;
 import smile.database.dto.BreakConnectS2C_DTO;
 import smile.database.dto.CreateRoomS2C_DTO;
@@ -12,6 +13,7 @@ import smile.global.annotation.Action;
 import smile.global.annotation.SubOperation;
 import smile.protocol.Protocol;
 import smile.protocol.SocketPackage;
+import smile.protocol.impl.ResultDatagram;
 import smile.protocol.impl.UserDatagram;
 import smile.service.home.Home;
 import smile.service.home.HomeInfo;
@@ -19,8 +21,6 @@ import smile.service.home.Player;
 import smile.service.poker.Card;
 import smile.tool.BreakConnectTools;
 import smile.tool.GameHelper;
-import smile.tool.IOC;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +38,16 @@ public class BreakActionHandler extends AbstractActionHandler {
     private MongoDao mongoDao;
     @InsertBean
     private PlayerInfoNotify playerInfoNotify;
+
+
+    @SubOperation(sub = 26,model = UserDatagram.class)
+    public SocketPackage clearConnection(SocketPackage socketPackage, Channel channel) {
+        UserDatagram datagram = (UserDatagram) socketPackage.getDatagram();
+        String uid = datagram.getUid();
+        BreakConnectTools.clearUid(uid);
+        return socketPackage;
+    }
+
     /**
      * 断线重连
      *
@@ -45,12 +55,19 @@ public class BreakActionHandler extends AbstractActionHandler {
      * @param channel
      * @return
      */
-    @SubOperation(sub = 25)
-    public SocketPackage breakCollection(SocketPackage socketPackage, Channel channel) {
+    @SubOperation(sub = 25,model = UserDatagram.class)
+    public SocketPackage breakConnection(SocketPackage socketPackage, Channel channel) {
         UserDatagram datagram = (UserDatagram) socketPackage.getDatagram();
         String uid0 = datagram.getUid();
         String hid = BreakConnectTools.getHidByUid(uid0);
         Home home = GameHelper.homeManager().getHome(hid);
+        if (home == null) {
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.HOME_UNFOUNJD);
+            socketPackage.getProtocol().setSub((byte) 99);
+            socketPackage.setDatagram(errorDatagram);
+            channel.writeAndFlush(socketPackage);
+            return socketPackage;
+        }
         Player player2 = home.getPlayer(uid0);
         player2.setChannel(channel);
         //TODO 房间里自己的牌，和房间信息，和当前出的牌,其他玩家的信息
@@ -84,13 +101,13 @@ public class BreakActionHandler extends AbstractActionHandler {
             int prePlayerCharId = Integer.parseInt(home.getCurrentOutCardsPlayer().getChairId());
             breakConnectS2C_dto.setPreOperaCharId(String.valueOf(prePlayerCharId));
             breakConnectS2C_dto.setPreOperaStatus(home.getPlayerByChairId(prePlayerCharId).getOperatorStatus() + "");
-        }else if(home.getCurrentChairId()!=-1){
+        } else if (home.getCurrentChairId() != -1) {
             int currentChairId = home.getCurrentChairId();
             breakConnectS2C_dto.setCurrentOperaCharId(currentChairId + "");
             //当期操作玩家的状态
             breakConnectS2C_dto.setCurrentOperaStatus(home.getPlayerByChairId(currentChairId).getWillOperatorStatus() + "");
             //上一个操作玩家
-            int preCharId=home.getPreOperaCharId(currentChairId);
+            int preCharId = home.getPreOperaCharId(currentChairId);
             breakConnectS2C_dto.setPreOperaCharId(String.valueOf(preCharId));
             breakConnectS2C_dto.setPreOperaStatus(home.getPlayerByChairId(preCharId).getOperatorStatus() + "");
         } else {
@@ -176,7 +193,6 @@ public class BreakActionHandler extends AbstractActionHandler {
         createRoomS2C_dto.setMultiple(homeInfo.getMultiple());
         return createRoomS2C_dto;
     }
-
 
 
 }

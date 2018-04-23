@@ -4,12 +4,14 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableScheduledFuture;
 import io.netty.channel.Channel;
-import lombok.AllArgsConstructor;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.smileframework.ioc.bean.annotation.InsertBean;
 import org.smileframework.ioc.bean.annotation.SmileComponent;
 import org.smileframework.tool.json.JsonUtils;
+import smile.config.ErrorEnum;
 import smile.database.domain.UserEntity;
 import smile.database.domain.UserFighting;
 import smile.database.dto.*;
@@ -24,10 +26,11 @@ import smile.service.home.HomeInfo;
 import smile.service.home.Player;
 import smile.service.home.Poker;
 import smile.service.poker.*;
+import smile.tool.DdzOperaHandler;
 import smile.tool.GameHelper;
-import smile.tool.IOC;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Predicate;
@@ -35,54 +38,84 @@ import java.util.stream.Stream;
 
 /**
  * @Package: smile.service.handler
- * @Description:
+ * @Description: 1. cards 出牌操作
+ * 2. 叫地主抢地主操作
+ * 3. 加倍操作
+ * 4. 校验出牌信息
  * @date: 2018/4/16 下午11:58
  * @author: liuxin
  */
 @SmileComponent
 @Action
 public class PlayerOperaActionHandler extends AbstractActionHandler {
-    private static Logger logger= LoggerFactory.getLogger(PlayerOperaActionHandler.class);
+    private static Logger logger = LoggerFactory.getLogger(PlayerOperaActionHandler.class);
 
     @InsertBean
     private MongoDao mongoDao;
     @InsertBean
     private PlayerInfoNotify playerInfoNotify;
 
-    @SubOperation(sub = 12)
-    public SocketPackage operator(SocketPackage socketPackage,Channel channel){
+    @InsertBean
+    DdzOperaHandler ddzOperaHandler;
+
+    /**
+     * 根据是否出牌判断逻辑处理
+     *
+     * @param socketPackage
+     * @param channel
+     * @return
+     */
+    @SubOperation(sub = 12,model = OperatorC2S_DTO.class)
+    public SocketPackage operator(SocketPackage socketPackage, Channel channel) {
         OperatorC2S_DTO datagram = (OperatorC2S_DTO) socketPackage.getDatagram();
+        String operationStatus = datagram.getOperationStatus();
+        String hid = datagram.getHid();
+        Home home = GameHelper.homeManager().getHome(hid);
+//        ddzOperaHandler.Operate(Integer.parseInt(operationStatus),home);
         if (datagram.getPokerAsList() != null) {
             cards(socketPackage, channel);
         } else {
-            opera(socketPackage, channel);
+            buchupai(socketPackage, channel);
         }
         return socketPackage;
     }
 
-    @SubOperation(sub = 10)
+    /**
+     * 1. 当玩家发送准备操作，将玩家的状态置换为2准备
+     * 2. 在房间信息添加准备人数的标识，默认开始是0
+     * 3. 构建玩家状态将玩家作为号和玩家当前状态返回
+     * 4. 将当前玩家的状态推送给房间里其他的玩家
+     * 5. 判断房间是否都是准备状态，如果readyNum等于4，则开始发牌操作
+     *
+     * @param socketPackage
+     * @param channel
+     * @return
+     */
+    @SubOperation(sub = 10,model = PlayerReadyC2S_DTO.class)
     public SocketPackage ready(SocketPackage socketPackage, Channel channel) {
         PlayerReadyC2S_DTO playerReadyC2SDto = (PlayerReadyC2S_DTO) socketPackage.getDatagram();
         String uid = playerReadyC2SDto.getUid();
         String hid = playerReadyC2SDto.getHid();
         Home home = GameHelper.homeManager().getHome(hid);
         Player player = home.getPlayer(uid);
-        //设置玩家为准备状态
+        //1.设置玩家为准备状态
         player.setStatus("2");
-        home.updatePlayer(player);
+        //2.
         home.addReady();
-        PlayerStatusS2C_DTO playStatus = PlayerStatusS2C_DTO.builder().chairId(player.getChairId()).status(player.getStatus())
+        //3.
+        PlayerStatusS2C_DTO playStatus = PlayerStatusS2C_DTO.builder()
+                .chairId(player.getChairId()).status(player.getStatus())
                 .uid(uid).build();
         socketPackage.setProtocol(new Protocol(2, 10));
         socketPackage.setDatagram(playStatus);
+        //4.
         List<Player> players = home.getPlayers();
-        //将当前玩家状态，通知给其他玩家
         for (int j = 0; j < players.size(); j++) {
             Player player2 = players.get(j);
             Channel otherChannel = player2.getChannel();
             otherChannel.writeAndFlush(socketPackage);
         }
-        //当前玩家准备好,判断其他玩家是否也都已经准备,当已经准备时候发牌
+        //5. 当前玩家准备好,判断其他玩家是否也都已经准备,当已经准备时候发牌
         if (home.isStart()) {
             Poker poker = home.getPoker();
             poker.pokerShuffle();
@@ -90,110 +123,123 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
             Random random = new Random();
             //地主座位号
             int chairId = random.nextInt(players.size());
-            chairId = Integer.parseInt(home.getChairdByUid("640325"));
-            //设置房主座位号
-//            home.setNextOperaChairId(chairId);
-            home.setLandLordChairId(chairId);
+            home.setInitLordChairId(chairId);
+            //设置将要操作的玩家
+            home.setCurrentChairId(chairId);
             /**
              * 通知地主操作
              */
             logger.info("当前发牌的人数为：" + players.size());
-            System.err.println(home);
+            logger.info(home.toString());
+            /**
+             * 当前操作状态
+             * 叫地主 = 1,
+             * 不叫 = 2,
+             * 抢地主 = 3,
+             * 不抢 = 4,
+             * 加倍 = 5,
+             * 不加倍 = 6,
+             * 思考中 = 7,
+             * 不出 = 8,
+             * 出牌 = 9,
+             * 其他 = 10
+             */
+            /**
+             * 1. 当开始发牌,将所有玩家的牌信息和地主座位号推送给自己，并将玩家状态由2准备，改为3游戏中
+             * 2. 给地主添加一个超时动作，当15s后判断，如果当前地主，没有叫地主1，也没有不叫2，则通知
+             *    下一个玩家去叫地主，并由服务器将地主超时操作该为2，不叫
+             */
+            //1.
             for (int i = 0; i < players.size(); i++) {
-                Player player2 = players.get(i);
-                player2.setStatus("3");
-                Channel channel1 = player2.getChannel();
+                Player ownerPlayer = players.get(i);
+                ownerPlayer.setStatus("3");
+                Channel channel1 = ownerPlayer.getChannel();
                 PokerS2C_DTO pokerS2C_dto = new PokerS2C_DTO();
-                pokerS2C_dto.addPoker(player2.getPoker(), chairId, chairId);
+                pokerS2C_dto.addPoker(ownerPlayer.getPoker(), chairId, chairId);
                 socketPackage.setProtocol(new Protocol(2, 11));
                 socketPackage.setDatagram(pokerS2C_dto);
-                //TODO 判断是否名牌,如果名牌,就通知给所有玩家
-                if (home.getHomeInfo().getMethod(3)) {
-                    playerInfoNotify.operator(home, socketPackage);
-                } else {
-                    logger.info("当前发牌的人：" + player2.getUid());
-                    channel1.writeAndFlush(socketPackage);
-                }
+                ChannelFuture channelFuture = channel1.writeAndFlush(socketPackage);
                 try {
-                    Thread.sleep(400);
+                    channelFuture.addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                            if (channelFuture.isSuccess()){
+                                logger.info("当前发牌的人：" + ownerPlayer.getUid());
+                                System.err.println("当前发送玩家连接信息："+ownerPlayer.getChannel());
+                                System.err.println("发送poker:"+ownerPlayer.getPoker());
+                            }
+                        }
+                    }).sync();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+
+//                try {
+//                    java.lang.Thread.sleep(800L);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
             }
-            //
+            //2.
             Player dizhu = home.getPlayerByChairId(chairId);
-
-            home.listeningSchedule(dizhu, new Runnable() {
-                @Override
-                public void run() {
-                    int operatorStatus = dizhu.getOperatorStatus();
-                    if (operatorStatus != 1 || operatorStatus != 2) {
-                        //标识为操作,通知所有人
-                        OperatorS2C_DTO operatorS2CDto = OperatorS2C_DTO.builder().currentChairId(home.getNextOperaChairId(Integer.parseInt(dizhu.getChairId())) + "")
-                                .preCharid(-1 + "").pokers(new ArrayList<>(1))
-                                .operationStatus("-1")
-                                .build();
-                        dizhu.setOperatorStatus(2);
-                        socketPackage.setProtocol(new Protocol(2, 12));
-                        socketPackage.setDatagram(operatorS2CDto);
-                        playerInfoNotify.operator(home, socketPackage);
-                    }
-                }
-            }, 15, new FutureCallback() {
-                @Override
-                public void onSuccess(Object result) {
-                    System.out.println("15未操作");
-                }
-
-                @Override
-                public void onFailure(Throwable t) {
-
-                }
-            });
-
-
+            dizhu.setTimeOut(true, home);
         }
         return socketPackage;
     }
 
-    @SubOperation(sub = 14)
+    /**
+     * 验证是否可以出牌
+     * 1. 获取将要验证的出牌
+     * 2. 获取桌面上牌信息
+     * 3. 获取将要验证牌的类型
+     * 4. 判断是否可以出牌
+     *
+     * @param socketPackage
+     * @param channel
+     * @return
+     */
+    @SubOperation(sub = 14,model = CheckPokerC2S_DTO.class)
     private SocketPackage isAllow(SocketPackage socketPackage, Channel channel) {
         CheckPokerC2S_DTO datagram = (CheckPokerC2S_DTO) socketPackage.getDatagram();
         String hid = datagram.getHid();
         String charid = datagram.getCharid();
         Home home = GameHelper.homeManager().getHome(hid);
-        //获取出牌
+        //1.
         List<Card> pokerAsList = datagram.getPokerAsList();
-        //获取桌面上牌信息
+        //2.
         List<Card> currentCards = home.getCurrentCards();
-        System.err.println("当前牌桌上的牌: " + currentCards);
+        logger.info("当前牌桌上的牌: " + currentCards);
         CardType preCardType = GameRule.getCardType(currentCards);
-        System.err.println("当前牌桌上的牌类型: " + preCardType);
-        System.err.println("当前牌: " + pokerAsList);
-        //获取玩家出牌类型
+        logger.info("当前牌桌上的牌类型: " + preCardType);
+        logger.info("当前将要验证的牌: " + pokerAsList);
+        //3.
         CardType myCardType = GameRule.getCardType(pokerAsList);
         if (myCardType == null) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前出牌不合法");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.CHUPAI_FEIFA);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));
             channel.writeAndFlush(errorDatagram);
         }
-        System.err.println("当前牌类型: " + myCardType);
+        logger.info("当前将要验证的牌类型: " + myCardType);
+        //4.
         boolean overcomePrev = GameRule.isOvercomePrev(pokerAsList, myCardType, currentCards, preCardType);
         boolean cardTypeIsAllow = GameRule.getCardType(pokerAsList) == null ? false : true;
-        //判断上一个出牌的人,是否是当前人,如果是cardTypeIsAllow设置为true
         if (home.getCurrentOutCardsPlayer() == null) {
+            //当没有人出牌时候，当前出牌玩家为null，可以出牌
             cardTypeIsAllow = true;
             overcomePrev = true;
         } else {
+            //判断上一个出牌的人,是否是当前人,如果是cardTypeIsAllow设置为true
             if (home.getCurrentOutCardsPlayer().getChairId().equalsIgnoreCase(charid)) {
                 cardTypeIsAllow = true;
                 overcomePrev = true;
             }
         }
-        System.err.println("是否可以出牌: " + overcomePrev);
+        logger.info("是否可以出牌: " + overcomePrev);
+        //当前还没有出牌
         if (currentCards == null) {
+            //只要规则符合出牌规则就可以出牌
             if (cardTypeIsAllow) {
                 socketPackage.setDatagram(new CheckPokerS2C_DTO(true));
             } else {
@@ -201,6 +247,7 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
             }
             channel.writeAndFlush(socketPackage);
         } else {
+            //当前已经有人出牌，则根据验证结果出牌
             if (cardTypeIsAllow) {
                 socketPackage.setDatagram(new CheckPokerS2C_DTO(overcomePrev));
             } else {
@@ -210,6 +257,7 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
         }
         return socketPackage;
     }
+
 
     /**
      * 操作是9
@@ -229,15 +277,15 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
         //添加操作次数
         home.addOperaCount();
         List<Card> currentCards = home.getCurrentCards();
-        System.out.println("当前牌桌上的牌: " + currentCards);
+        logger.info("当前牌桌上的牌: " + currentCards);
         CardType preCardType = GameRule.getCardType(currentCards);
-        System.out.println("当前牌桌上的牌类型: " + preCardType);
+        logger.info("当前牌桌上的牌类型: " + preCardType);
         //广播给所有人
         List<Card> pokerAsList = operatorC2SDto.getPokerAsList();
-        System.out.println("当前牌: " + pokerAsList);
+        logger.info("当前牌: " + pokerAsList);
         CardType myCardType = GameRule.getCardType(pokerAsList);
         if (myCardType == null) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前出牌不合法");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.CHUPAI_FEIFA);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));
@@ -246,13 +294,17 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
         if (myCardType.equals(CardType.ZHA_DAN)) {
             home.multiply(2);
         }
-        System.out.println("当前牌类型: " + myCardType);
+        logger.info("当前牌类型: " + myCardType);
         boolean cardTypeIsAllow = GameRule.isOvercomePrev(pokerAsList, myCardType, currentCards, preCardType);
 
-
+        String maxChairId = "-1";
+        if (home.getCurrentOutCardsPlayer() != null) {
+            maxChairId = home.getCurrentOutCardsPlayer().getChairId();
+        }
         OperatorS2C_DTO operatorS2CDto = OperatorS2C_DTO.builder()
                 .operationStatus(operationStatus)
                 .currentChairId(home.getNextOperaChairId(Integer.parseInt(chairId)) + "")
+                .maxOperaCharId(maxChairId)
                 .currentStatus("9")
                 .preCharid(chairId).build();
 
@@ -271,7 +323,7 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
                 cardTypeIsAllow = true;
             }
         }
-        System.out.println("是否可以出牌: " + cardTypeIsAllow);
+        logger.info("是否可以出牌: " + cardTypeIsAllow);
         Player myPlayer = home.getPlayerByChairId(Integer.parseInt(chairId));
         if (cardTypeIsAllow) {
             //当前出牌的人
@@ -286,16 +338,17 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
                 pokerAsString.add(String.valueOf(card.id));
             }
             operatorS2CDto.setPokers(pokerAsString);
+            operatorS2CDto.setMaxOperaCharId(myPlayer.getChairId());
             socketPackage.setDatagram(operatorS2CDto);
             playerInfoNotify.operator(home, socketPackage);
         } else {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前出牌不合法");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.CHUPAI_FEIFA);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));
             channel.writeAndFlush(errorDatagram);
         }
-        System.out.println("当前玩家uid:" + myPlayer.getUid() + ",剩余牌数:" + myPlayer.getPoker());
+        logger.info("当前玩家uid:" + myPlayer.getUid() + ",剩余牌数:" + myPlayer.getPoker());
         //记录玩家将要操作的状态
         Player willOptPlayer = home.getPlayerByChairId(Integer.parseInt(operatorS2CDto.getCurrentChairId()));
         willOptPlayer.setWillOperatorStatus(Integer.parseInt(operatorS2CDto.getCurrentStatus()));
@@ -324,7 +377,7 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
             if (Integer.parseInt(chairId) == landLordChairId) {
                 //地主赢
                 int dizhuCountGrade = myPlayer.addGrade(Integer.parseInt(grade));
-                settleDTOS.add(new SettleS2C_DTO().new SettleDTO(uid, dizhuCountGrade+""));
+                settleDTOS.add(new SettleS2C_DTO().new SettleDTO(uid, dizhuCountGrade + ""));
                 myPlayer.setCurrentGrage(grade);
                 Stream<Player> playerStream = home.getPlayers().stream().filter(new Predicate<Player>() {
                     @Override
@@ -356,7 +409,7 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
                     Player player = players.get(i);
                     String uid0 = player.getUid();
                     int nongMinCountGrade = player.subGrade(multiple * Integer.parseInt(blind));
-                    settleDTOS.add(new SettleS2C_DTO().new SettleDTO(uid0, nongMinCountGrade+ "", CardUtil.cardConvert(player.getPoker())));
+                    settleDTOS.add(new SettleS2C_DTO().new SettleDTO(uid0, nongMinCountGrade + "", CardUtil.cardConvert(player.getPoker())));
                     player.setCurrentGrade(multiple * Integer.parseInt(blind) + "");
                 }
                 int diZhuCountGrade = playerByChairId.subGrade(Integer.parseInt(grade));
@@ -370,16 +423,18 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
             playerInfoNotify.operator(home, socketPackage);
 
             //清理房间地主
-            home.setFirstJiaoDizhuCharid(-1);
+            home.clearFirstJiaoDiZhu();
             home.setLandLordChairId(-1);
             home.setCurrentOutCardsPlayer(null);
             home.setNextOutCard(false);
             home.setMaxCardOut(false);
             home.setCurrentCards(null);
             home.setReadyNum(0);
-            home.getPlayers().stream().forEach(player -> player.getPoker().clear());
+            home.getPlayers().stream().forEach(player -> {player.getPoker().clear();player.setStatus("1");});
             home.getPoker().getMainPoker().clear();
             home.setPoker(new CardPoker(home.getPlayers().size()));
+            home.setQiangDiZhuCount(0);
+            home.setOperaCount(0);
             long startTime = home.getStartTime();
             List<Player> players = home.getPlayers();
             for (int i = 0, len = players.size(); i < len; i++) {
@@ -409,311 +464,19 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
         String chairId = operatorC2SDto.getChairId();
         String hid = operatorC2SDto.getHid();
         Home home = GameHelper.homeManager().getHome(hid);
-        Player curretnPlayer = home.getPlayerByChairId(Integer.parseInt(chairId));
-        int old_operaStatus = curretnPlayer.getOperatorStatus();
-        curretnPlayer.setOperatorStatus(Integer.parseInt(operationStatus));
-        //取消用户身上的监控器
-        ListenableScheduledFuture schedule = home.getSchedule(curretnPlayer);
-        if (schedule != null) {
-            schedule.cancel(true);
-        }
-        OperatorS2C_DTO operatorS2CDto = OperatorS2C_DTO.builder()
-                .operationStatus(operationStatus)
-                .currentChairId(home.getNextOperaChairId(Integer.parseInt(chairId)) + "")
-                .preCharid(chairId).pokers(new ArrayList<>()).build();
-        System.err.println("---------------------:抢地主入口打印:--------------------- ");
-        System.err.println(home);
-        //当前人叫地主
-        if (operationStatus.equalsIgnoreCase("1")) {
-            //添加抢地主次数
-            home.addQiangDiZhuCount();
-            //通知下一个人抢地主
-            operatorS2CDto.setCurrentStatus("3");
-            curretnPlayer.setJiaodizhu(true);
-            //设置第一个叫地主的座位
-            home.setFirstJiaoDizhuCharid(Integer.parseInt(chairId));
-            socketPackage.setDatagram(operatorS2CDto);
-
-            //判断其他人都是2221: 最后修改的地方
-            Stream<Player> playerStream = home.getPlayers().stream().filter(new Predicate<Player>() {
-                @Override
-                public boolean test(Player player) {
-                    return !player.getChairId().equalsIgnoreCase(home.getFirstQiangDizhuCharid() + "");
-                }
-            });
-            boolean isOutCard = playerStream.allMatch(new Predicate<Player>() {
-                @Override
-                public boolean test(Player player) {
-                    return player.getOperatorStatus() == 2;
-                }
-            });
-
-            if (isOutCard) {
-                home.setLandLordChairId(home.getFirstQiangDizhuCharid());
-                socketPackage.setProtocol(new Protocol(2, 13));
-                ArrayList<Card> mainPoker = home.getPoker().getMainPoker();
-                List<String> mainPokers = new ArrayList<>();
-                mainPoker.stream().forEach(card -> {
-                    mainPokers.add(card.id + "");
-                });
-                chairId = home.getFirstQiangDizhuCharid() + "";
-                DizhuS2C_DTO dizhuS2C_dto = DizhuS2C_DTO.builder().chaird(chairId).pokers(mainPokers).build();
-                home.setCurrentOutCardsPlayer(curretnPlayer);//这是
-                socketPackage.setDatagram(dizhuS2C_dto);
-                playerInfoNotify.operator(home, socketPackage);
-                //将底牌，添加到地主牌中
-                int landLordChairId = home.getLandLordChairId();
-                home.getPlayerByChairId(landLordChairId).addMainPoker(mainPoker);
-
-                //通知地主出牌
-                operatorS2CDto.setCurrentStatus("9");
-                operatorS2CDto.setCurrentChairId(chairId);
-                operatorS2CDto.setOperationStatus("-1");
-                socketPackage.setProtocol(new Protocol(2, 12));
-                socketPackage.setDatagram(operatorS2CDto);
-                playerInfoNotify.operator(home, socketPackage);
-                return socketPackage;
-            }
-            //记录玩家将要操作的状态
-            Player willOptPlayer = home.getPlayerByChairId(Integer.parseInt(operatorS2CDto.getCurrentChairId()));
-            willOptPlayer.setWillOperatorStatus(Integer.parseInt(operatorS2CDto.getCurrentStatus()));
-            playerInfoNotify.operator(home, socketPackage);
-            System.err.println("------------------:抢地主后打印:----------------- ");
-            System.err.println(home);
-            return socketPackage;
-        }
-        //当前人不叫
-        if (operationStatus.equalsIgnoreCase("2")) {
-            //添加抢地主次数
-            home.addQiangDiZhuCount();
-            //通知下一个人叫地主
-            operatorS2CDto.setCurrentStatus("1");
-            //抢地主就吧当前地主改为强的人
-            home.setLandLordChairId(Integer.parseInt(chairId));
-            curretnPlayer.setJiaodizhu(false);
-            //TODO 如果只有地主抢地主,则确定地主,并将底牌通知给他
-            //判断是否没人抢地主
-            Stream<Player> playerStream = home.getPlayers().stream().filter(new Predicate<Player>() {
-                @Override
-                public boolean test(Player player) {
-                    return !player.getChairId().equalsIgnoreCase(home.getFirstQiangDizhuCharid() + "");
-                }
-            });
-            boolean isOutCard = playerStream.allMatch(new Predicate<Player>() {
-                @Override
-                public boolean test(Player player) {
-                    return player.getOperatorStatus() == 4;
-                }
-            });
-            if (isOutCard) {//通知地主出牌
-                //地主已经确定为是第一个叫地主的人
-                home.setLandLordChairId(home.getFirstQiangDizhuCharid());
-                socketPackage.setProtocol(new Protocol(2, 13));
-                ArrayList<Card> mainPoker = home.getPoker().getMainPoker();
-                List<String> mainPokers = new ArrayList<>();
-                mainPoker.stream().forEach(card -> {
-                    mainPokers.add(card.id + "");
-                });
-                chairId = home.getFirstQiangDizhuCharid() + "";
-                DizhuS2C_DTO dizhuS2C_dto = DizhuS2C_DTO.builder().chaird(chairId).pokers(mainPokers).build();
-                home.setCurrentOutCardsPlayer(curretnPlayer);//这是
-                socketPackage.setDatagram(dizhuS2C_dto);
-                playerInfoNotify.operator(home, socketPackage);
-
-                //将底牌，添加到地主牌中
-                int landLordChairId = home.getLandLordChairId();
-                home.getPlayerByChairId(landLordChairId).addMainPoker(mainPoker);
-                //通知地主出牌
-                operatorS2CDto.setCurrentStatus("9");
-                operatorS2CDto.setCurrentChairId(chairId);
-                operatorS2CDto.setOperationStatus("-1");
-                socketPackage.setProtocol(new Protocol(2, 12));
-                socketPackage.setDatagram(operatorS2CDto);
-                playerInfoNotify.operator(home, socketPackage);
-            } else {
-                operatorS2CDto.setCurrentStatus("1");
-                socketPackage.setDatagram(operatorS2CDto);
-                playerInfoNotify.operator(home, socketPackage);
-            }
-            return socketPackage;
-
-        }
-        //抢地主
-        if (operationStatus.equalsIgnoreCase("3")) {
-            home.multiply(2);
-            //添加抢地主次数
-            home.addQiangDiZhuCount();
-            //通知下一个人抢地主
-            operatorS2CDto.setCurrentStatus("3");
-            home.setLandLordChairId(Integer.parseInt(chairId));
-            //通知下一个玩家抢地主,如果他的状态是不抢就跳过
-            if (home.getQiangDiZhuCount() % 4 == 0) {
-                chairId = home.getFirstQiangDizhuCharid() + "";
-                operatorS2CDto.setCurrentChairId(chairId);
-                //通知下一个人抢地主
-                operatorS2CDto.setCurrentStatus("3");
-                socketPackage.setDatagram(operatorS2CDto);
-                playerInfoNotify.operator(home, socketPackage);
-                return socketPackage;
-            }
-            //是否抢地主
-            if (home.isDizhu()) {
-                socketPackage.setProtocol(new Protocol(2, 13));
-                ArrayList<Card> mainPoker = home.getPoker().getMainPoker();
-                List<String> mainPokers = new ArrayList<>();
-                mainPoker.stream().forEach(card -> {
-                    mainPokers.add(card.id + "");
-                });
-                DizhuS2C_DTO dizhuS2C_dto = DizhuS2C_DTO.builder().chaird(chairId).pokers(mainPokers).build();
-                home.setCurrentOutCardsPlayer(curretnPlayer);//这是
-                home.setLandLordChairId(Integer.parseInt(chairId));
-                socketPackage.setDatagram(dizhuS2C_dto);
-                playerInfoNotify.operator(home, socketPackage);
-
-                //将底牌，添加到地主牌中
-                int landLordChairId = home.getLandLordChairId();
-                home.getPlayerByChairId(landLordChairId).addMainPoker(mainPoker);
-                //通知地主出牌
-                operatorS2CDto.setCurrentStatus("9");
-                operatorS2CDto.setCurrentChairId(chairId);
-                operatorS2CDto.setOperationStatus("-1");
-                socketPackage.setProtocol(new Protocol(2, 12));
-                socketPackage.setDatagram(operatorS2CDto);
-                playerInfoNotify.operator(home, socketPackage);
-            } else {
-                operatorS2CDto.setCurrentChairId(home.getNextOperaChairId(Integer.parseInt(chairId)) + "");
-                //通知下一个人抢地主
-                operatorS2CDto.setCurrentStatus("3");
-                socketPackage.setDatagram(operatorS2CDto);
-                playerInfoNotify.operator(home, socketPackage);
-            }
-
-            return socketPackage;
-        }
-        //不抢地主
-        if (operationStatus.equalsIgnoreCase("4")) {
-            //添加抢地主次数
-            home.addQiangDiZhuCount();
-            //TODO 判断出了地主,其他人是不是都是4
-            //判断出了地主其他人,是否都是不出,获取所有玩家,并排除当前最大玩家
-            Stream<Player> playerStream = home.getPlayers().stream().filter(new Predicate<Player>() {
-                @Override
-                public boolean test(Player player) {
-                    boolean b = player.getChairId().equalsIgnoreCase(home.getFirstQiangDizhuCharid() + "");
-                    return !b;
-                }
-            });
-            //? 当true: 说明,没人抢地主,可以,直接发牌
-            //判断除地主其他人是否是不出或者出牌
-            boolean isMaxOut0 = playerStream.allMatch(new Predicate<Player>() {
-                @Override
-                public boolean test(Player player) {
-                    return player.getOperatorStatus() == 4;
-                }
-            });
-            /**
-             * 当其他人都不叫,只有地主叫,确定地主为第一个叫地主的人
-             */
-            if (isMaxOut0) {
-                home.setLandLordChairId(home.getFirstQiangDizhuCharid());
-                socketPackage.setProtocol(new Protocol(2, 13));
-                ArrayList<Card> mainPoker = home.getPoker().getMainPoker();
-                List<String> mainPokers = new ArrayList<>();
-                mainPoker.stream().forEach(card -> {
-                    mainPokers.add(card.id + "");
-                });
-                DizhuS2C_DTO dizhuS2C_dto = DizhuS2C_DTO.builder().chaird(home.getLandLordChairId() + "").pokers(mainPokers).build();
-                socketPackage.setDatagram(dizhuS2C_dto);
-                playerInfoNotify.operator(home, socketPackage);
-
-                //将底牌，添加到地主牌中
-                int landLordChairId = home.getLandLordChairId();
-                home.getPlayerByChairId(landLordChairId).addMainPoker(mainPoker);
-                //通知地主出牌
-                operatorS2CDto.setCurrentStatus("9");
-                operatorS2CDto.setCurrentChairId(home.getLandLordChairId() + "");
-                operatorS2CDto.setOperationStatus("-1");
-                socketPackage.setProtocol(new Protocol(2, 12));
-                socketPackage.setDatagram(operatorS2CDto);
-                playerInfoNotify.operator(home, socketPackage);
-            } else if (home.getFirstQiangDizhuCharid() == Integer.parseInt(chairId)) {
-                //如果是地主,第一次叫地主,第二次不叫,则给最后一个抢地主的人
-                socketPackage.setProtocol(new Protocol(2, 13));
-                ArrayList<Card> mainPoker = home.getPoker().getMainPoker();
-                List<String> mainPokers = new ArrayList<>();
-                mainPoker.stream().forEach(card -> {
-                    mainPokers.add(card.id + "");
-                });
-                DizhuS2C_DTO dizhuS2C_dto = DizhuS2C_DTO.builder().chaird(home.getLandLordChairId() + "").pokers(mainPokers).build();
-                socketPackage.setDatagram(dizhuS2C_dto);
-                playerInfoNotify.operator(home, socketPackage);
-
-                //通知地主出牌
-                operatorS2CDto.setCurrentStatus("9");
-                operatorS2CDto.setCurrentChairId(home.getLandLordChairId() + "");
-                operatorS2CDto.setOperationStatus("-1");
-                socketPackage.setProtocol(new Protocol(2, 12));
-                socketPackage.setDatagram(operatorS2CDto);
-                playerInfoNotify.operator(home, socketPackage);
-
-                //将底牌，添加到地主牌中
-                int landLordChairId = home.getLandLordChairId();
-                home.getPlayerByChairId(landLordChairId).addMainPoker(mainPoker);
-
-            } else {
-                operatorS2CDto.setCurrentChairId(home.getNextOperaChairId(Integer.parseInt(chairId)) + "");
-                //通知下一个人抢地主
-                operatorS2CDto.setCurrentStatus("3");
-                socketPackage.setDatagram(operatorS2CDto);
-                playerInfoNotify.operator(home, socketPackage);
-            }
-            return socketPackage;
-        }
-        return socketPackage;
-
+        ddzOperaHandler.Operate(Integer.parseInt(operationStatus), home);
+        return null;
     }
 
 
-    public SocketPackage JiaBei(SocketPackage socketPackage, Channel channel) {
-        OperatorC2S_DTO operatorC2SDto = (OperatorC2S_DTO) socketPackage.getDatagram();
-        String operationStatus = operatorC2SDto.getOperationStatus();
-        String chairId = operatorC2SDto.getChairId();
-        String hid = operatorC2SDto.getHid();
-        Home home = GameHelper.homeManager().getHome(hid);
-        Player playerByChairId = home.getPlayerByChairId(Integer.parseInt(chairId));
-        int old_operaStatus = playerByChairId.getOperatorStatus();
-        playerByChairId.setOperatorStatus(Integer.parseInt(operationStatus));
-        //取消用户身上的监控器
-        ListenableScheduledFuture schedule = home.getSchedule(playerByChairId);
-        if (schedule != null) {
-            schedule.cancel(true);
-        }
-        OperatorS2C_DTO operatorS2CDto = OperatorS2C_DTO.builder()
-                .operationStatus(operationStatus)
-                .currentChairId(home.getNextOperaChairId(Integer.parseInt(chairId)) + "")
-                .preCharid(chairId).pokers(new ArrayList<>()).build();
-        System.err.println("加倍打印: ");
-        System.err.println(home);
-        //当前人加倍
-        if (operationStatus.equalsIgnoreCase("5")) {
-            home.multiply(2);
-            //通知下一个人加倍
-            operatorS2CDto.setCurrentStatus("5");
-        }
-
-        //当前人不加倍
-        if (operationStatus.equalsIgnoreCase("6")) {
-            //通知下一个人加倍
-            operatorS2CDto.setCurrentStatus("5");
-        }
-        //记录玩家将要操作的状态
-        Player willOptPlayer = home.getPlayerByChairId(Integer.parseInt(operatorS2CDto.getCurrentChairId()));
-        willOptPlayer.setWillOperatorStatus(Integer.parseInt(operatorS2CDto.getCurrentStatus()));
-        return socketPackage;
-    }
-
-
-    public SocketPackage opera(SocketPackage socketPackage, Channel channel) {
+    /**
+     * 出牌操作
+     *
+     * @param socketPackage
+     * @param channel
+     * @return
+     */
+    public SocketPackage buchupai(SocketPackage socketPackage, Channel channel) {
         OperatorC2S_DTO operatorC2SDto = (OperatorC2S_DTO) socketPackage.getDatagram();
         String operationStatus = operatorC2SDto.getOperationStatus();
         String chairId = operatorC2SDto.getChairId();
@@ -721,17 +484,10 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
         Home home = GameHelper.homeManager().getHome(hid);
         Player currentPlayer = home.getPlayerByChairId(Integer.parseInt(chairId));
         currentPlayer.setOperatorStatus(Integer.parseInt(operationStatus));
-        //取消用户身上的监控器
-        ListenableScheduledFuture schedule = home.getSchedule(currentPlayer);
-        if (schedule != null) {
-            schedule.cancel(true);
+        String maxChairId = "-1";
+        if (home.getCurrentOutCardsPlayer() != null) {
+            maxChairId = home.getCurrentOutCardsPlayer().getChairId();
         }
-        OperatorS2C_DTO operatorS2CDto = OperatorS2C_DTO.builder()
-                .operationStatus(operationStatus)
-                .currentChairId(home.getNextOperaChairId(Integer.parseInt(chairId)) + "")
-                .preCharid(chairId).pokers(new ArrayList<>()).build();
-//        System.err.println("全局打印: ");
-//        System.err.println(home);
 
         int i = Integer.parseInt(operatorC2SDto.getOperationStatus());
         if (i <= 4) {
@@ -742,19 +498,17 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
             //加倍逻辑
             return JiaBei(socketPackage, channel);
         }
-        //其他为出牌逻辑
-        //当前人出牌
-        if (operationStatus.equalsIgnoreCase("9")) {
-            //通知下一个人出牌
-            operatorS2CDto.setCurrentStatus("9");
-            //添加操作次数
-            home.addOperaCount();
-            home.setNextOutCard(true);
-        }
+        OperatorS2C_DTO operatorS2CDto = OperatorS2C_DTO.builder()
+                .operationStatus(operationStatus)
+                .currentChairId(home.getNextOperaChairId(Integer.parseInt(chairId)) + "")
+                .maxOperaCharId(maxChairId)
+                .preCharid(chairId).pokers(new ArrayList<>()).build();
         //当前人不出
         if (operationStatus.equalsIgnoreCase("8")) {
             System.err.println("出牌打印: ");
             System.err.println(home);
+            //更新当前玩家操作
+            currentPlayer.setOperatorStatus(Integer.parseInt(operationStatus));
             //通知下一个人出牌
             operatorS2CDto.setCurrentStatus("9");
             //添加操作次数
@@ -765,14 +519,28 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
             if (home.isAgain()) {
                 if (currentPlayer.getOperatorStatus() == 8) {
                     isMaxOut = true;
+                    Stream<Player> playerStream = home.getPlayers().stream().filter(new Predicate<Player>() {
+                        @Override
+                        public boolean test(Player player) {
+                            boolean b = player.getChairId().equalsIgnoreCase(home.getCurrentOutCardsPlayer().getChairId());
+                            return !b;
+                        }
+                    });
+                    playerStream.forEach(player -> {
+                        if (player.getOperatorStatus()==8){
+                            //代表是上一轮的88
+                            player.setOperatorStatus(88);
+                        }
+                    });
                 }
             }
-            //判断出了地主其他人,是否都是不出,获取所有玩家,并排除当前最大玩家
+            // 判断出了地主其他人,是否都是不出,获取所有玩家,并排除当前最大玩家
             Stream<Player> playerStream = home.getPlayers().stream().filter(new Predicate<Player>() {
                 @Override
                 public boolean test(Player player) {
                     boolean b = player.getChairId().equalsIgnoreCase(home.getCurrentOutCardsPlayer().getChairId());
-                    return !b;
+//                    return !b;
+                    return true;
                 }
             });
             //? 当true: 最大人出牌
@@ -793,10 +561,11 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
             if (isMaxOut & isMaxOut0) {
                 //是否最大牌,继续出牌
                 home.setMaxCardOut(true);
-                //清除当前牌面上牌,牌
+                //清除当前牌面上牌，以为自己的牌，没人要，还是自己出，所以可以清楚桌面上的牌
                 home.setCurrentCards(null);
-                //设置最大人出牌
+                //设置最大人出牌，还是自己出牌
                 operatorS2CDto.setCurrentChairId(home.getCurrentOutCardsPlayer().getChairId() + "");
+                //因为一局结束，所以更新其他玩家操作
                 home.getPlayers().stream().filter(new Predicate<Player>() {
                     @Override
                     public boolean test(Player player) {
@@ -836,17 +605,66 @@ public class PlayerOperaActionHandler extends AbstractActionHandler {
             operatorS2CDto.setPreCharid(chairId);
             socketPackage.setDatagram(operatorS2CDto);
             //记录玩家将要操作的状态
-            Player willOptPlayer = home.getPlayerByChairId(Integer.parseInt(operatorS2CDto.getCurrentChairId()));
-            willOptPlayer.setWillOperatorStatus(Integer.parseInt(operatorS2CDto.getCurrentStatus()));
+            Player willOutCardPlayer = home.getPlayerByChairId(Integer.parseInt(operatorS2CDto.getCurrentChairId()));
+            willOutCardPlayer.setWillOperatorStatus(Integer.parseInt(operatorS2CDto.getCurrentStatus()));
             playerInfoNotify.operator(home, socketPackage);
+            //TODO 给下一个将要操作的人，添加一个监听
+            //还是操作,广播给其他玩家
+            String currentChairId = operatorS2CDto.getCurrentChairId();
+            //默认给将要出牌的玩家设置为超时，如果用户没有超时
         } else {
             //还是操作,广播给其他玩家
+            String currentChairId = operatorS2CDto.getCurrentChairId();
+            Player willOutCardPlayer = home.getPlayerByChairId(Integer.parseInt(currentChairId));
             playerInfoNotify.operator(home, socketPackage);
+//            //默认给将要出牌的玩家设置为超时，如果用户没有超时
+//            willOutCardPlayer.setTimeOut(true,home);
         }
         return socketPackage;
     }
 
 
+    public SocketPackage JiaBei(SocketPackage socketPackage, Channel channel) {
+        OperatorC2S_DTO operatorC2SDto = (OperatorC2S_DTO) socketPackage.getDatagram();
+        String operationStatus = operatorC2SDto.getOperationStatus();
+        String chairId = operatorC2SDto.getChairId();
+        String hid = operatorC2SDto.getHid();
+        Home home = GameHelper.homeManager().getHome(hid);
+        Player playerByChairId = home.getPlayerByChairId(Integer.parseInt(chairId));
+        int old_operaStatus = playerByChairId.getOperatorStatus();
+        playerByChairId.setOperatorStatus(Integer.parseInt(operationStatus));
+        //取消用户身上的监控器
+        ListenableScheduledFuture schedule = home.getSchedule(playerByChairId);
+        if (schedule != null) {
+            schedule.cancel(true);
+        }
+        String maxChairId = "-1";
+        if (home.getCurrentOutCardsPlayer() != null) {
+            maxChairId = home.getCurrentOutCardsPlayer().getChairId();
+        }
+        OperatorS2C_DTO operatorS2CDto = OperatorS2C_DTO.builder()
+                .operationStatus(operationStatus)
+                .currentChairId(home.getNextOperaChairId(Integer.parseInt(chairId)) + "")
+                .preCharid(chairId).pokers(new ArrayList<>())
+                .maxOperaCharId(maxChairId).build();
+        logger.info("加倍打印: ");
+        logger.info(home.toString());
+        //当前人加倍
+        if (operationStatus.equalsIgnoreCase("5")) {
+            home.multiply(2);
+            //通知下一个人加倍
+            operatorS2CDto.setCurrentStatus("5");
+        }
+        //当前人不加倍
+        if (operationStatus.equalsIgnoreCase("6")) {
+            //通知下一个人加倍
+            operatorS2CDto.setCurrentStatus("5");
+        }
+        //记录玩家将要操作的状态
+        Player willOptPlayer = home.getPlayerByChairId(Integer.parseInt(operatorS2CDto.getCurrentChairId()));
+        willOptPlayer.setWillOperatorStatus(Integer.parseInt(operatorS2CDto.getCurrentStatus()));
+        return socketPackage;
+    }
 
 
 }

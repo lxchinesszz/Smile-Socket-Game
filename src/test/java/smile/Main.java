@@ -1,7 +1,16 @@
 package smile;
 
 
+import com.google.common.collect.Lists;
+import smile.service.poker.Card;
+import smile.service.poker.CardType;
+import smile.service.poker.CardUtil;
+import smile.service.poker.GameRule;
+
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -11,34 +20,42 @@ import java.util.concurrent.ConcurrentHashMap;
  * @date: 2018/3/27 下午2:12
  */
 public class Main {
+
     public static void main(String[] args) {
-        System.out.println(Thread.currentThread().getContextClassLoader().getParent().getParent());
-        IdentityHashMap m = new IdentityHashMap();
-        /**
-         * 两个地址值,不相等,所以保存了两个
-         */
-        String key = new String("key_1");
-        String key0 = new String("key_1");
-        m.put(key, "value1");
-        m.put(key0, "value1");
 
-        /**
-         * 因为两个key一样,是在字符串常量池中,所以地址是相同的.所以就保存最后一个
-         */
-        m.put("key_2", "value_2");
-        m.put("key_2", "value_2_2");
+        List<Card> poker = Lists.newArrayList();
+        System.out.println(new Card(2));
+        poker.add(new Card(2));
+        poker.add(new Card(2));
+        System.out.println(new Card(45));
+        poker.add(new Card(45));
+        poker.add(new Card(45));
+        System.out.println(new Card(7));
+        poker.add(new Card(7));
+        System.out.println(new Card(10));
+        poker.add(new Card(10));
+        System.out.println(new Card(9));
+        poker.add(new Card(9));
+        System.out.println(new Card(34));
+        poker.add(new Card(34));
+        poker.add(new Card(34));
+        poker.add(new Card(34));
+        poker.add(new Card(34));
+        CardUtil.sortCards(poker);
+        System.out.println(poker);
+        //模拟三代一和三不带和单张
+        List<Card> overcomePrevCards = GameRule.getOvercomePrevCards(poker, Arrays.asList(new Card(45), new Card(45), new Card(45)), CardType.SAN_BU_DAI);
+        System.out.println(overcomePrevCards);
 
-        //{key_2=value_2_2, key_1=value1, key_1=value1}
-        System.out.println(m);
+        //
+        List<Card> noni1 = GameRule.getOvercomePrevCards(poker, Arrays.asList(new Card(45), new Card(45), new Card(45),new Card(25)), CardType.SAN_DAI_YI);
+        System.out.println(noni1);
 
-        Object key_2 = m.get("key_2");
+        List<Card> noni2 = GameRule.getOvercomePrevCards(poker, null, null);
+        System.out.println(noni2);
 
-
-        String s="welect ok";
-        s.replace("e","E");
-        System.out.println(s);
-        System.out.println(s.replace("e","E"));
 
 
     }
+
 }

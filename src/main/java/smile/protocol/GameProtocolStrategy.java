@@ -61,6 +61,8 @@ public class GameProtocolStrategy implements ProtocolStrategy {
             return new UserC2S_DTO();
         }else if (sub==25){
             return new UserDatagram();
+        }else if (sub==26){
+            return new UserDatagram();
         }
         return new UserDatagram();
     }

@@ -5,6 +5,7 @@ import com.google.common.collect.Sets;
 import io.netty.channel.Channel;
 import org.smileframework.ioc.bean.annotation.InsertBean;
 import org.smileframework.ioc.bean.annotation.SmileComponent;
+import org.smileframework.tool.date.DateFormatTools;
 import smile.database.domain.UserFighting;
 import smile.database.dto.UserC2S_DTO;
 import smile.database.dto.UserFightS2C_DTO;
@@ -13,6 +14,7 @@ import smile.database.mongo.MongoDao;
 import smile.global.annotation.Action;
 import smile.global.annotation.SubOperation;
 import smile.protocol.SocketPackage;
+import smile.tool.DateTools;
 import smile.tool.IOC;
 
 import java.math.BigDecimal;
@@ -33,7 +35,7 @@ public class ZhanJiActionHandler extends AbstractActionHandler {
     @InsertBean
     private PlayerInfoNotify playerInfoNotify;
 
-    @SubOperation(sub=20)
+    @SubOperation(sub=20,model = UserC2S_DTO.class)
     public SocketPackage zhanji(SocketPackage socketPackage, Channel channel) {
         UserC2S_DTO datagram = (UserC2S_DTO) socketPackage.getDatagram();
         String uid = datagram.getUid();
@@ -51,7 +53,23 @@ public class ZhanJiActionHandler extends AbstractActionHandler {
                     history_userFighting.add(jisuan(s, uid));
                 }
             });
-            socketPackage.setDatagram(new UserFightS2C_DTO("0", history_userFighting));
+            Collections.sort(history_userFighting, new Comparator<UserFightS2C_INNER_DTO>() {
+                @Override
+                public int compare(UserFightS2C_INNER_DTO o1, UserFightS2C_INNER_DTO o2) {
+                    long o1time = DateTools.format("MM/dd HH:mm:ss", o1.getStartTime()).getTime();
+                    long o2time=DateTools.format("MM/dd HH:mm:ss",o2.getStartTime()).getTime();
+                    return (int) (o2time-o1time);
+                }
+            });
+            int size = history_userFighting.size();
+            if (size<=7){
+                socketPackage.setDatagram(new UserFightS2C_DTO("0", history_userFighting));
+            }else {
+                List<UserFightS2C_INNER_DTO> new_history_userFighting = Lists.newArrayList();
+                for (int s=0;s<7;++s){
+                    new_history_userFighting.add(history_userFighting.get(s));
+                }
+            }
         }
         channel.writeAndFlush(socketPackage);
         return socketPackage;
@@ -87,4 +105,6 @@ public class ZhanJiActionHandler extends AbstractActionHandler {
         return new UserFightS2C_INNER_DTO(uid, hid, startTime, endTime, gradeCount.toString());
 
     }
+
+
 }

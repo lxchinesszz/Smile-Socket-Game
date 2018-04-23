@@ -362,7 +362,7 @@ public final class CardUtil {
     }
 
 
-    public static List<String> cardConvert(ArrayList<Card> poker){
+    public static List<String> cardConvert(List<Card> poker){
         if (poker==null){
             return null;
         }
@@ -372,4 +372,6 @@ public final class CardUtil {
         }
         return pokers;
     }
+
+
 }

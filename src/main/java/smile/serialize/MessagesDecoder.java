@@ -2,6 +2,7 @@ package smile.serialize;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;

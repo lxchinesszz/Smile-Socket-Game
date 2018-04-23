@@ -1,6 +1,7 @@
 package smile.protocol.impl;
 
 import lombok.Data;
+import smile.config.ErrorEnum;
 import smile.protocol.Datagram;
 
 /**
@@ -14,18 +15,22 @@ public class ResultDatagram implements Datagram {
     private int code;
     private String message;
 
-    public ResultDatagram(int code, String message) {
-        this.code = code;
-        this.message = message;
+    public ResultDatagram(ErrorEnum errorEnum){
+        this.code=errorEnum.getCode();
     }
 
-    public ResultDatagram(String message) {
-        this(0, message);
-    }
+//    public ResultDatagram(int code, String message) {
+//        this.code = code;
+//        this.message = message;
+//    }
 
     public ResultDatagram() {
-        this("处理成功");
+        this.code=0;
     }
+
+//    public ResultDatagram() {
+//        this("处理成功");
+//    }
 
 
 }

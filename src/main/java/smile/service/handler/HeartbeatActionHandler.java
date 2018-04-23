@@ -16,7 +16,8 @@ import smile.protocol.impl.HeartbeatDatagram;
 @SmileComponent
 @Action
 public class HeartbeatActionHandler {
-    @SubOperation(sub = 0)
+
+    @SubOperation(sub = 0,model = HeartbeatDatagram.class)
     public SocketPackage hearbeat(SocketPackage socketPackage, Channel channel){
         socketPackage.setDatagram(new HeartbeatDatagram());
         channel.writeAndFlush(socketPackage);

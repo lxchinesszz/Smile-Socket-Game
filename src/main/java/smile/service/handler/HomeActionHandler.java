@@ -8,6 +8,7 @@ import org.smileframework.ioc.bean.annotation.InsertBean;
 import org.smileframework.ioc.bean.annotation.SmileComponent;
 import org.smileframework.tool.json.JsonUtils;
 import org.smileframework.tool.string.StringTools;
+import smile.config.ErrorEnum;
 import smile.database.domain.HomeInfoEntity;
 import smile.database.domain.UserEntity;
 import smile.database.dto.*;
@@ -45,6 +46,7 @@ public class HomeActionHandler extends AbstractActionHandler {
     private MongoDao mongoDao;
     @InsertBean
     private PlayerInfoNotify playerInfoNotify;
+
     /**
      * 创建房间
      *
@@ -52,7 +54,7 @@ public class HomeActionHandler extends AbstractActionHandler {
      * @param channel
      * @return
      */
-    @SubOperation(sub = 3)
+    @SubOperation(sub = 3,model = CreateRoomC2S_DTO.class)
     public SocketPackage createHome(SocketPackage socketPackage, Channel channel) {
         CreateRoomC2S_DTO homeDTO = (CreateRoomC2S_DTO) socketPackage.getDatagram();
         String uid = homeDTO.getUid();
@@ -84,7 +86,7 @@ public class HomeActionHandler extends AbstractActionHandler {
         //1.
         int i = BigDecimal.valueOf(Integer.parseInt(roomNum)).divide(BigDecimal.valueOf(5L)).intValue();
         if (i > carNum) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前房卡数为:" + carNum + ", 可创建牌局数为:" + (carNum * 5));
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.CARD_BUGOU);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             channel.writeAndFlush(socketPackage);
@@ -149,6 +151,7 @@ public class HomeActionHandler extends AbstractActionHandler {
                         SocketPackage playerInfoSocket = new SocketPackage(new Protocol(2, 9), playerInfoS2CDto);
                         channelFuture.channel().writeAndFlush(playerInfoSocket);
                     }
+                    System.err.println("玩家:" + ownPlayer + ",已创建好房间");
                 }
             }
         });
@@ -167,7 +170,7 @@ public class HomeActionHandler extends AbstractActionHandler {
      * @param channel
      * @return
      */
-    @SubOperation(sub = 4)
+    @SubOperation(sub = 4,model = JoinRoomC2S_DTO.class)
     public SocketPackage joinRoom(SocketPackage socketPackage, Channel channel) {
         JoinRoomC2S_DTO joinRoomC2S_dto = (JoinRoomC2S_DTO) socketPackage.getDatagram();
         String hid = joinRoomC2S_dto.getHid();
@@ -191,6 +194,16 @@ public class HomeActionHandler extends AbstractActionHandler {
         //4.
         String query0 = String.format("{\"ownerId\":\"%s\"}", uid);
         HomeInfoEntity all = mongoDao.findOne(query0, HomeInfoEntity.class);
+        //创建一个房管,对房间进行管理
+        HomeManager homeManager = GameHelper.homeManager();
+        Home home = homeManager.getHome(hid);
+        if (all == null && home == null) {
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.HOME_UNFOUNJD);
+            socketPackage.getProtocol().setSub((byte) 99);
+            socketPackage.setDatagram(errorDatagram);
+            channel.writeAndFlush(socketPackage);
+            return socketPackage;
+        }
         if (all != null) {
             String personNum = all.getPersonNum() + "";
             String blind = all.getBlind();
@@ -202,17 +215,20 @@ public class HomeActionHandler extends AbstractActionHandler {
             String hid0 = all.getHid();
             //创建一副扑克牌
             Poker poker = new CardPoker(personNum);
-            //创建一个房管,对房间进行管理
-            HomeManager homeManager = GameHelper.homeManager();
             HomeInfo homeInfo0 = new HomeInfo(player, personNum, poker, multiple, blind, sharedIP, AA, method, roomNum);
-            if (StringTools.isEmpty(hid0) & homeInfo0.getShengyuRoomNum() > 0) {
-                homeManager.createHome(hid0, homeInfo0);
+            //如果房间号不等于空，剩余牌局数大于0则从数据库回复房间信息
+            if (!StringTools.isEmpty(hid0) && homeInfo0.getShengyuRoomNum() > 0) {
+                home = homeManager.getHome(hid0);
+                //避免重复添加
+                if (home == null) {
+                    homeManager.createHome(hid0, homeInfo0);
+                }
             }
         }
         //5.
-        Home home = GameHelper.homeManager().getHome(hid);
-        if (home == null) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前房间号:" + hid + ",已失效,请重新创建加入");
+       Home currentHome = GameHelper.homeManager().getHome(hid);
+        if (currentHome == null) {
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.HOME_UNFOUNJD);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             channel.writeAndFlush(socketPackage);
@@ -224,17 +240,17 @@ public class HomeActionHandler extends AbstractActionHandler {
          *    如果存在只添加链接channel到玩家信息中
          *    否则，则添加当前玩家到房间中，并分配给玩家作为号
          */
-        if (home.getPlayers().size() > 4) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前房间人数:" + home.getPlayers().size() + "不能再加入");
+        if (currentHome.getPlayers().size() >=4) {
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.MANYUAN);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             channel.writeAndFlush(socketPackage);
             return socketPackage;
         }
         //1.
-        Player isExit = home.getPlayer(uid);
+        Player isExit = currentHome.getPlayer(uid);
         if (isExit == null) {
-            List<Player> players = home.getPlayers();
+            List<Player> players = currentHome.getPlayers();
             int size = players.size();
             ArrayList<String> objects = Lists.newArrayList();
             for (int i = 0; i < size; i++) {
@@ -248,19 +264,19 @@ public class HomeActionHandler extends AbstractActionHandler {
             strings.removeAll(objects);
             System.err.println("当前玩家: " + uid + ",分配作为号为: " + strings.get(0));
             player.setChairId(String.valueOf(strings.get(0)));
-            home.addPlayers(player);
+            currentHome.addPlayers(player);
         } else {
             player = isExit;
             player.setChannel(channel);
         }
-        if (home.getPlayers().size() > home.getHomeInfo().getPersonNum()) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前房间玩家数量:" + home.getPlayers().size() + ", 房间最大玩家数:" + home.getHomeInfo().getPersonNum());
+        if (currentHome.getPlayers().size() > currentHome.getHomeInfo().getPersonNum()) {
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.MANYUAN);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             return socketPackage;
         }
-        GameHelper.homeManager().updateHome(home);
-        HomeInfo homeInfo = home.getHomeInfo();
+        GameHelper.homeManager().updateHome(currentHome);
+        HomeInfo homeInfo = currentHome.getHomeInfo();
         /**
          * 1. 玩家加入成功,将房主创建房间信息，同步给当前加入的玩家
          * 2. 将当前加入的玩家信息，同步给当前房间中其他的玩家
@@ -277,13 +293,14 @@ public class HomeActionHandler extends AbstractActionHandler {
         socketPackage.setProtocol(protocol);
         socketPackage.setDatagram(createRoomS2CDto);
         ChannelFuture channelFuture = channel.writeAndFlush(socketPackage);
-        final Player joinPlayer = home.getPlayer(uid);
+        final Player joinPlayer = currentHome.getPlayer(uid);
         channelFuture.addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture channelFuture) throws Exception {
                 //2.
                 if (channelFuture.isSuccess()) {
-                    List<Player> players = home.getPlayers();
+                    System.err.println("玩家:" + joinPlayer + ", 加入到房间");
+                    List<Player> players = currentHome.getPlayers();
                     for (int i = 0; i < players.size(); i++) {
                         Player otherPlayer = players.get(i);
                         Channel otherChannel = otherPlayer.getChannel();
@@ -330,7 +347,7 @@ public class HomeActionHandler extends AbstractActionHandler {
      * 离开房间操作
      * 1. 获取将要离开房间的用户信息
      * 2. 获取房间信息，非空判断，空： 错误提示
-     * 3. 获取当前离开房间的玩家，并从home房间信息中，移除当前玩家
+     * 3. 获取当前离开房间的玩家，如果状态不为开始状态就可以退出，并从home房间信息中，移除当前玩家
      * 4. 当玩家从房间里面移除，如果玩家处于准备状态,就将房间准备的人数减1
      * 5. 判断当前房间中没有玩家,就移除当前房间
      * 6. 当房间中没有玩家，房主并没有解散房间，而是离开房间，则保存房间信息到数据库,下次继续登录
@@ -339,7 +356,7 @@ public class HomeActionHandler extends AbstractActionHandler {
      * @param channel
      * @return
      */
-    @SubOperation(sub = 5)
+    @SubOperation(sub = 5,model = LeaveRoomC2S_DTO.class)
     public SocketPackage leaveHome(SocketPackage socketPackage, Channel channel) {
         LeaveRoomC2S_DTO leaveRoomC2SDto = (LeaveRoomC2S_DTO) socketPackage.getDatagram();
         //1.
@@ -348,15 +365,24 @@ public class HomeActionHandler extends AbstractActionHandler {
         Home home = GameHelper.homeManager().getHome(leaveHid);
         //2.
         if (home == null) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "未找到当前房间号:" + leaveHid);
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.HOME_UNFOUNJD);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             channel.writeAndFlush(socketPackage);
             return socketPackage;
         }
         //3.
+
         Player player = home.getPlayer(leaveUid);
-        home.removePlayer(leaveUid);
+        if (player.getStatus().equalsIgnoreCase("3")){
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.YOUXIZHONG);
+            socketPackage.getProtocol().setSub((byte) 99);
+            socketPackage.setDatagram(errorDatagram);
+            channel.writeAndFlush(socketPackage);
+            return socketPackage;
+        }else {
+            home.removePlayer(leaveUid);
+        }
         //4.
         if (player.getStatus().equalsIgnoreCase("2")) {
             home.subReady();
@@ -389,6 +415,7 @@ public class HomeActionHandler extends AbstractActionHandler {
             @Override
             public void operationComplete(ChannelFuture channelFuture) throws Exception {
                 if (channelFuture.isSuccess()) {
+                    System.err.println("玩家:" + player + ", 离开房间");
                     //判断当前离开的玩家是否是已经准备状态,如果不等于-1，则是准备状态，则有离开通知
                     //否则观战玩家离开，不通知其他玩家
                     if (!player.getChairId().equalsIgnoreCase("-1")) {
@@ -425,14 +452,14 @@ public class HomeActionHandler extends AbstractActionHandler {
      * @param channel
      * @return
      */
-    @SubOperation(sub = 16)
+    @SubOperation(sub = 16,model = RemoveRoomC2S_DTO.class)
     private SocketPackage remove(SocketPackage socketPackage, Channel channel) {
         RemoveRoomC2S_DTO datagram = (RemoveRoomC2S_DTO) socketPackage.getDatagram();
         String hid = datagram.getHid();
         String uid = datagram.getUid();
         Home home = GameHelper.homeManager().getHome(hid);
         if (home == null) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前房间已经解散或不存在");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.HOME_UNFOUNJD);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));
@@ -453,15 +480,15 @@ public class HomeActionHandler extends AbstractActionHandler {
         String ownerId = homeInfo.getHomeOwner().getUid();
         //1.
         if (!ownerId.equalsIgnoreCase(uid)) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "当前uid无权解散房间");
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.WUQVAN);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));
             channel.writeAndFlush(socketPackage);
         }
         //2.
-        if (home.getPlayers().size() != 1 && !home.getPlayers().get(0).getUid().equalsIgnoreCase(ownerId)) {
-            ResultDatagram errorDatagram = new ResultDatagram(-1, "房间内还有其他玩家，不能解散当前房间");
+        if (home.getPlayers().size() != 1) {
+            ResultDatagram errorDatagram = new ResultDatagram(ErrorEnum.JIESAN_FAIL);
             socketPackage.getProtocol().setSub((byte) 99);
             socketPackage.setDatagram(errorDatagram);
             System.err.println(JsonUtils.toJson(errorDatagram));

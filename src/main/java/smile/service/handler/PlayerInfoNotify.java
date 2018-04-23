@@ -3,6 +3,8 @@ package smile.service.handler;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import org.bson.Document;
 import org.smileframework.ioc.bean.annotation.InsertBean;
 import org.smileframework.ioc.bean.annotation.SmileComponent;
@@ -15,6 +17,7 @@ import smile.database.dto.PlayerInfoS2C_DTO;
 import smile.database.mongo.MongoDao;
 import smile.protocol.Protocol;
 import smile.protocol.SocketPackage;
+import smile.protocol.impl.UserDatagram;
 import smile.service.home.Home;
 import smile.service.home.Player;
 import smile.tool.DateTools;
@@ -88,6 +91,19 @@ public class PlayerInfoNotify {
 
     }
 
+    public void operator(List <Player> players, SocketPackage socketPackage) {
+        for (int i = 0, lenth = players.size(); i < lenth; i++) {
+            Player player = players.get(i);
+            Channel channel = player.getChannel();
+            channel.writeAndFlush(socketPackage);
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
     /**
      * 房卡推送
      * @param
@@ -98,9 +114,18 @@ public class PlayerInfoNotify {
             Channel channel = player.getChannel();
             if (channel!=null){
                 String uid = player.getUid();
-                UserEntity byUid = mongoDao.findByUid(uid, UserEntity.class);
+                UserDatagram byUid = mongoDao.findByUid(uid, UserDatagram.class);
                 socketPackage.setDatagram(new CardNotifyS2C_DTO(uid,byUid.getCardNum()));
-                channel.writeAndFlush(socketPackage);
+                ChannelFuture channelFuture =
+                        channel.writeAndFlush(socketPackage);
+                channelFuture.addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture channelFuture) throws Exception {
+                        if (channelFuture.isSuccess()){
+                            System.err.println("玩家:"+player+byUid+".房卡信息已推送");
+                        }
+                    }
+                });
             }
         }
     }

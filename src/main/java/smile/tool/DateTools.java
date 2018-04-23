@@ -1,5 +1,7 @@
 package smile.tool;
 
+import org.smileframework.tool.date.DateFormatTools;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -40,5 +42,20 @@ public class DateTools
             e.printStackTrace();
         }
         return date;
+    }
+
+    public static Date format(String format,String datetime){
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
+        Date parse=null;
+        try {
+             parse = simpleDateFormat.parse(datetime);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return parse;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(format("MM/dd HH:mm:ss","04/18 21:15:45").getTime());
     }
 }

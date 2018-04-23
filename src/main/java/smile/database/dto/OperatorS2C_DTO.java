@@ -21,11 +21,22 @@ public class OperatorS2C_DTO implements Datagram {
     private String operationStatus;
     private List<String> pokers;
     /**
-     * 座位号
+     * 上一个玩家座位号
      */
     private String preCharid;
 
+    /**
+     * 当前操作玩家座位号
+     */
     private String currentChairId;
 
+    /**
+     * 当前操作玩家状态
+     */
     private String currentStatus;
+
+    /**
+     * 当前最大操作玩家
+     */
+    private String maxOperaCharId="-1";
 }

@@ -1,6 +1,7 @@
 package smile.service.poker;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -21,15 +22,10 @@ public final class GameRule {
     /**
      * 判断我选择出的牌和上家的牌的大小，决定是否可以出牌
      *
-     * @param myCards
-     *            我想出的牌
-     *
-     * @param myCardType
-     *            我的牌的类型
-     * @param prevCards
-     *            上家的牌
-     * @param prevCardType
-     *            上家的牌型
+     * @param myCards      我想出的牌
+     * @param myCardType   我的牌的类型
+     * @param prevCards    上家的牌
+     * @param prevCardType 上家的牌型
      * @return 可以出牌，返回true；否则，返回false。
      */
     public static boolean isOvercomePrev(List<Card> myCards,
@@ -168,12 +164,9 @@ public final class GameRule {
     /**
      * 判断我所有的牌中，是否存在能够管住上家的牌，决定出牌按钮是否显示
      *
-     * @param myCards
-     *            我所有的牌 *
-     * @param prevCards
-     *            上家的牌
-     * @param prevCardType
-     *            上家牌的类型
+     * @param myCards      我所有的牌 *
+     * @param prevCards    上家的牌
+     * @param prevCardType 上家牌的类型
      * @return 可以出牌，返回true；否则，返回false。
      */
     public static boolean isOvercomePrev(List<Card> myCards,
@@ -432,8 +425,7 @@ public final class GameRule {
     /**
      * 检测牌的类型
      *
-     * @param myCards
-     *            我出的牌
+     * @param myCards 我出的牌
      * @return 如果遵守规则，返回牌的类型，否则，返回null。
      */
     public static CardType getCardType(List<Card> myCards) {
@@ -470,8 +462,7 @@ public final class GameRule {
     /**
      * 判断牌是否为单
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为单，返回true；否则，返回false。
      */
     public static boolean isDan(List<Card> myCards) {
@@ -486,8 +477,7 @@ public final class GameRule {
     /**
      * 判断牌是否为对子
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为对子，返回true；否则，返回false。
      */
     public static boolean isDuiZi(List<Card> myCards) {
@@ -510,8 +500,7 @@ public final class GameRule {
     /**
      * 判断牌是否为3带1
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为3带1，被带牌的位置，0或3，否则返回-1。炸弹返回-1。
      */
     public static int isSanDaiYi(List<Card> myCards) {
@@ -547,8 +536,7 @@ public final class GameRule {
     /**
      * 判断牌是否为3不带
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为3不带，返回true；否则，返回false。
      */
     public static boolean isSanBuDai(List<Card> myCards) {
@@ -570,8 +558,7 @@ public final class GameRule {
     /**
      * 判断牌是否为顺子
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为顺子，返回true；否则，返回false。
      */
     public static boolean isShunZi(List<Card> myCards) {
@@ -613,8 +600,7 @@ public final class GameRule {
     /**
      * 判断牌是否为炸弹
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为炸弹，返回true；否则，返回false。
      */
     public static boolean isZhaDan(List<Card> myCards) {
@@ -638,8 +624,7 @@ public final class GameRule {
     /**
      * 判断牌是否为王炸
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为王炸，返回true；否则，返回false。
      */
     public static boolean isDuiWang(List<Card> myCards) {
@@ -662,8 +647,7 @@ public final class GameRule {
     /**
      * 判断牌是否为连对
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为连对，返回true；否则，返回false。
      */
     public static boolean isLianDui(List<Card> myCards) {
@@ -702,8 +686,7 @@ public final class GameRule {
     /**
      * 判断牌是否为飞机
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为飞机，返回true；否则，返回false。
      */
     public static boolean isFeiJi(List<Card> myCards) {
@@ -731,8 +714,7 @@ public final class GameRule {
     /**
      * 判断牌是否为飞机不带
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为飞机不带，返回true；否则，返回false。
      */
     public static boolean isFeiJiBuDai(List<Card> myCards) {
@@ -776,8 +758,7 @@ public final class GameRule {
     /**
      * 判断牌是否为飞机带
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为飞机带，返回true；否则，返回false。
      */
     public static boolean isFeiJiDai(List<Card> myCards) {
@@ -807,8 +788,7 @@ public final class GameRule {
     /**
      * 判断牌是否为4带2
      *
-     * @param myCards
-     *            牌的集合
+     * @param myCards 牌的集合
      * @return 如果为4带2，返回true；否则，返回false。
      */
     public static boolean isSiDaiEr(List<Card> myCards) {
@@ -834,8 +814,7 @@ public final class GameRule {
     /**
      * 打印一个字符串，方便调式
      *
-     * @param str
-     *            要打印的字符串
+     * @param str 要打印的字符串
      */
     public static void print(String str) {
         System.out.println(str);
@@ -847,7 +826,7 @@ public final class GameRule {
 
 
     public static void main(String[] args) {
-        List list=new ArrayList();
+        List list = new ArrayList();
         list.add(new Card(5));
         list.add(new Card(5));
         list.add(new Card(6));
@@ -855,6 +834,253 @@ public final class GameRule {
         list.add(new Card(7));
         list.add(new Card(7));
         System.out.println(isLianDui(list));
+    }
+
+    /**
+     * 获取是自己手中可以压住上一个家的牌信息
+     *
+     * @param myCards      我所有的牌 *
+     * @param prevCards    上家的牌
+     * @param prevCardType 上家牌的类型
+     * @return 可以出牌，返回true；否则，返回false。
+     */
+    public static List<Card> getOvercomePrevCards(List<Card> myCards,
+                                                  List<Card> prevCards, CardType prevCardType) {
+        // 我的牌和上家的牌都不能为null
+        if (myCards != null & prevCards == null) {
+            return Arrays.asList(myCards.get(0));
+        }
+
+        if (myCards == null & prevCards == null) {
+            return null;
+        }
+
+        if (prevCardType == null) {
+            System.out.println("上家出的牌不合法，所以不能出。");
+            return Arrays.asList(myCards.get(0));
+        }
+
+        // 默认情况：上家和自己想出的牌都符合规则
+        CardUtil.sortCards(myCards);// 对牌排序
+        CardUtil.sortCards(prevCards);// 对牌排序
+
+        // 上一首牌的个数
+        int prevSize = prevCards.size();
+        int mySize = myCards.size();
+
+        // 我先出牌，上家没有牌,我可以随便出牌
+        if (prevSize == 0 && mySize != 0) {
+            return Arrays.asList(myCards.get(0));
+        }
+
+        // 集中判断对方不是炸弹，我出炸弹的情况
+        if (prevCardType != CardType.ZHA_DAN) {
+            if (mySize < 4) {
+                return null;
+            } else {
+                for (int i = 0; i < mySize - 3; i++) {
+                    int grade0 = myCards.get(i).grade;
+                    int grade1 = myCards.get(i + 1).grade;
+                    int grade2 = myCards.get(i + 2).grade;
+                    int grade3 = myCards.get(i + 3).grade;
+
+                    if (grade1 == grade0 && grade2 == grade0
+                            && grade3 == grade0) {
+                        return Arrays.asList(myCards.get(i),myCards.get(i+1),myCards.get(i+2),myCards.get(i+3));
+                    }
+                }
+            }
+
+        }
+
+        int prevGrade = prevCards.get(0).grade;
+
+        // 比较2家的牌，主要有2种情况，1.我出和上家一种类型的牌，即对子管对子；
+        // 2.我出炸弹，此时，和上家的牌的类型可能不同
+        // 王炸的情况已经排除
+
+        // 上家出单
+        if (prevCardType == CardType.DAN) {
+            // 一张牌可以大过上家的牌
+            for (int i = mySize - 1; i >= 0; i--) {
+                int grade = myCards.get(i).grade;
+                if (grade > prevGrade) {
+                    // 只要有1张牌可以大过上家，则返回true
+                    return Arrays.asList(myCards.get(i));
+                }
+            }
+
+        }
+
+        // 上家出对子
+        else if (prevCardType == CardType.DUI_ZI) {
+            // 2张牌可以大过上家的牌
+            for (int i = mySize - 1; i >= 1; i--) {
+                int grade0 = myCards.get(i).grade;
+                int grade1 = myCards.get(i - 1).grade;
+                if (grade0 == grade1) {
+                    if (grade0 > prevGrade) {
+                        // 只要有1对牌可以大过上家，则返回true
+                        return Arrays.asList(myCards.get(i), myCards.get(i - 1));
+                    }
+                }
+            }
+
+        }
+        // 上家出3不带
+        else if (prevCardType == CardType.SAN_BU_DAI) {
+            // 3张牌可以大过上家的牌
+            for (int i = mySize - 1; i >= 2; i--) {
+                int grade0 = myCards.get(i).grade;
+                int grade1 = myCards.get(i - 1).grade;
+                int grade2 = myCards.get(i - 2).grade;
+
+                if (grade0 == grade1 && grade0 == grade2) {
+                    if (grade0 > prevGrade) {
+                        // 只要3张牌可以大过上家，则返回true
+                        return Arrays.asList(myCards.get(i), myCards.get(i - 1), myCards.get(i - 2));
+                    }
+                }
+            }
+
+        }
+        // 上家出3带1
+        else if (prevCardType == CardType.SAN_DAI_YI) {
+            // 3带1 3不带 比较只多了一个判断条件
+            if (mySize < 4) {
+                return null;
+            }
+            //三带一的单张
+            Card card = prevCards.get(3);
+            // 3张牌可以大过上家的牌
+            for (int i = mySize - 1; i >= 2; i--) {
+                int grade0 = myCards.get(i).grade;
+                int grade1 = myCards.get(i - 1).grade;
+                int grade2 = myCards.get(i - 2).grade;
+
+                if (grade0 == grade1 && grade0 == grade2) {
+                    if (grade0 > prevGrade) {
+                        List<Card> new_poker=new ArrayList<>();
+                        new_poker.addAll(myCards);
+                        new_poker.removeAll(Arrays.asList(myCards.get(i), myCards.get(i - 1), myCards.get(i - 2)));
+                        for (Card c:new_poker){
+                            int grade = c.grade;
+                            if (grade>card.grade){
+                                // 只要3张牌可以大过上家，则返回true
+                                return Arrays.asList(myCards.get(i), myCards.get(i - 1), myCards.get(i - 2),c);
+                            }
+                        }
+
+                    }
+                }
+            }
+
+        }
+        // 上家出炸弹
+        else if (prevCardType == CardType.ZHA_DAN) {
+            // 4张牌可以大过上家的牌
+            for (int i = mySize - 1; i >= 3; i--) {
+                int grade0 = myCards.get(i).grade;
+                int grade1 = myCards.get(i - 1).grade;
+                int grade2 = myCards.get(i - 2).grade;
+                int grade3 = myCards.get(i - 3).grade;
+
+                if (grade0 == grade1 && grade0 == grade2 && grade0 == grade3) {
+                    if (grade0 > prevGrade) {
+                        // 只要有4张牌可以大过上家，则返回true
+                        return Arrays.asList(myCards.get(i), myCards.get(i - 1), myCards.get(i - 2), myCards.get(i - 3));
+                    }
+                }
+            }
+
+        }
+        // 上家出4带2
+        else if (prevCardType == CardType.SI_DAI_ER) {
+            // 4张牌可以大过上家的牌
+            for (int i = mySize - 1; i >= 3; i--) {
+                int grade0 = myCards.get(i).grade;
+                int grade1 = myCards.get(i - 1).grade;
+                int grade2 = myCards.get(i - 2).grade;
+                int grade3 = myCards.get(i - 3).grade;
+
+                if (grade0 == grade1 && grade0 == grade2 && grade0 == grade3) {
+                    // 只要有炸弹，则返回true
+                    return Arrays.asList(myCards.get(i), myCards.get(i - 1), myCards.get(i - 2), myCards.get(i - 3));
+                }
+            }
+        }
+        // 上家出顺子
+        else if (prevCardType == CardType.SHUN_ZI) {
+            if (mySize < prevSize) {
+                return null;
+            } else {
+                for (int i = mySize - 1; i >= prevSize - 1; i--) {
+                    List<Card> cards = new ArrayList<Card>();
+                    for (int j = 0; j < prevSize; j++) {
+                        cards.add(new Card(myCards.get(i - j).grade));
+                    }
+
+                    CardType myCardType = getCardType(cards);
+                    if (myCardType == CardType.SHUN_ZI) {
+                        int myGrade2 = cards.get(cards.size() - 1).grade;// 最大的牌在最后
+                        int prevGrade2 = prevCards.get(prevSize - 1).grade;// 最大的牌在最后
+                        if (myGrade2 > prevGrade2) {
+                            return cards;
+                        }
+                    }
+                }
+            }
+
+        }
+        // 上家出连对
+        else if (prevCardType == CardType.LIAN_DUI) {
+            if (mySize < prevSize) {
+                return null;
+            } else {
+                for (int i = mySize - 1; i >= prevSize - 1; i--) {
+                    List<Card> cards = new ArrayList<Card>();
+                    for (int j = 0; j < prevSize; j++) {
+                        cards.add(new Card(myCards.get(i - j).grade));
+                    }
+
+                    CardType myCardType = getCardType(cards);
+                    if (myCardType == CardType.LIAN_DUI) {
+                        int myGrade2 = cards.get(cards.size() - 1).grade;// 最大的牌在最后,getCardType会对列表排序
+                        int prevGrade2 = prevCards.get(prevSize - 1).grade;// 最大的牌在最后
+                        if (myGrade2 > prevGrade2) {
+                            return cards;
+                        }
+                    }
+                }
+            }
+
+        }
+        // 上家出飞机
+        else if (prevCardType == CardType.FEI_JI) {
+            if (mySize < prevSize) {
+                return null;
+            } else {
+                for (int i = mySize - 1; i >= prevSize - 1; i--) {
+                    List<Card> cards = new ArrayList<Card>();
+                    for (int j = 0; j < prevSize; j++) {
+                        cards.add(new Card(myCards.get(i - j).grade));
+                    }
+
+                    CardType myCardType = getCardType(cards);
+                    if (myCardType == CardType.FEI_JI) {
+                        int myGrade4 = cards.get(4).grade;//
+                        int prevGrade4 = prevCards.get(4).grade;//
+
+                        if (myGrade4 > prevGrade4) {
+                            return cards;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 默认不能出牌
+        return null;
     }
 }
 

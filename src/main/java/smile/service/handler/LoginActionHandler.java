@@ -45,7 +45,7 @@ public class LoginActionHandler extends AbstractActionHandler {
      * @param channel
      * @return
      */
-    @SubOperation(sub = 100)
+    @SubOperation(sub = 100,model = ServiceTokenDatagram.class)
     private SocketPackage serviceToken(SocketPackage socketPackage, Channel channel) {
         ServiceTokenDatagram serviceTokenDatagram = (ServiceTokenDatagram) socketPackage.getDatagram();
         //1.
@@ -75,7 +75,7 @@ public class LoginActionHandler extends AbstractActionHandler {
      * @param channel
      * @return
      */
-    @SubOperation(sub = {1})
+    @SubOperation(sub = {1},model = UserDatagram.class)
     private SocketPackage operator(SocketPackage socketPackage, Channel channel) {
         String HOSTADDRESS = ChannelAttributeTools.attr(channel, Constants.IP_KEY);
         /**
